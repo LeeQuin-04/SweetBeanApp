@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nhãn giao diện của module 1 (xác thực). Thông báo lỗi do tầng logic sinh ra nằm ở core/AuthMessages.kt -->
+<resources>
+    <!-- Dùng chung -->
+    <string name="auth_action_logout">Đăng xuất</string>
+    <string name="auth_email_label">Email</string>
+    <string name="auth_username_label">Username</string>
+    <string name="auth_password_label">Mật khẩu</string>
+    <string name="auth_confirm_password_label">Xác nhận mật khẩu</string>
+    <string name="auth_password_show">Hiện</string>
+    <string name="auth_password_hide">Ẩn</string>
+    <string name="auth_action_exit">Thoát</string>
+
+    <!-- Đăng nhập -->
+    <string name="auth_login_welcome">Chào mừng trở lại!</string>
+    <string name="auth_login_subtitle">Đăng nhập để tiếp tục hành trình của bạn</string>
+    <string name="auth_login_identifier_label">Email</string>
+    <string name="auth_login_forgot_password">Quên mật khẩu?</string>
+    <string name="auth_login_button">Đăng nhập</string>
+    <string name="auth_login_or_continue">Hoặc tiếp tục với</string>
+    <string name="auth_login_google_button">Đăng nhập bằng Google</string>
+    <string name="auth_login_no_account">Chưa có tài khoản?</string>
+    <string name="auth_login_register">Đăng ký</string>
+
+    <!-- Đăng ký -->
+    <string name="auth_register_title">Tạo tài khoản SweetBean</string>
+    <string name="auth_register_subtitle">Điền thông tin để bắt đầu hành trình của bạn.</string>
+    <string name="auth_register_button">Đăng ký</string>
+    <string name="auth_register_have_account">Đã có tài khoản? Đăng nhập</string>
+
+    <!-- Quên mật khẩu -->
+    <string name="auth_forgot_title">Quên mật khẩu?</string>
+    <string name="auth_forgot_description">Nhập email đã đăng ký. Chúng tôi sẽ gửi liên kết đặt lại mật khẩu.</string>
+    <string name="auth_forgot_email_placeholder">example@gmail.com</string>
+    <string name="auth_forgot_send">Gửi email xác nhận</string>
+    <string name="auth_forgot_sending">Đang gửi…</string>
+    <string name="auth_forgot_close">Đóng</string>
+    <string name="auth_forgot_sent_hint">Mở email và làm theo hướng dẫn để tạo mật khẩu mới.</string>
+
+    <!-- Thiết lập Username -->
+    <string name="auth_username_title">Thiết lập Username</string>
+    <string name="auth_username_description">Chào mừng bạn đến với SweetBean! Chỉ còn một bước: hãy chọn Username để hoàn tất tài khoản.</string>
+    <string name="auth_username_placeholder">Ví dụ: sweetbean_01</string>
+    <string name="auth_username_support">3–20 ký tự: chữ không dấu, số hoặc _ (không phân biệt hoa/thường khi kiểm tra trùng)</string>
+    <string name="auth_username_confirm">Xác nhận</string>
+    <string name="auth_username_saving">Đang lưu…</string>
+    <string name="auth_username_switch_account">Dùng tài khoản khác</string>
+
+    <!-- Xác minh email -->
+    <string name="auth_verify_title">Xác minh email</string>
+    <string name="auth_verify_intro">SweetBean cần xác minh email trước khi bạn tiếp tục.</string>
+    <string name="auth_verify_unknown_email">Không xác định được email</string>
+    <string name="auth_verify_instructions">Hãy mở hộp thư, tìm email từ Firebase và nhấn vào liên kết xác minh. Nếu không thấy, hãy kiểm tra thư mục Spam.</string>
+    <string name="auth_verify_done">Tôi đã xác minh email</string>
+    <string name="auth_verify_resend">Gửi lại email xác minh</string>
+    <string name="auth_verify_resend_wait">Gửi lại sau %1$s</string>
+    <string name="auth_verify_switch_email">Dùng email khác</string>
+
+    <!-- Cổng xác thực -->
+    <string name="auth_gate_retry">Thử lại</string>
+
+    <!-- Splash, Home -->
+    <string name="splash_content_description">Màn hình khởi đầu SweetBean</string>
+    <string name="home_welcome">Chào mừng đến với SweetBean!</string>
+</resources>
