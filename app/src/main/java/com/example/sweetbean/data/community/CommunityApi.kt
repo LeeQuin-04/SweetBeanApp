@@ -38,8 +38,7 @@ class CommunityApi(
         return CreatePostResult(
             postId = json.getString("postId"),
             distributionLevel = json.optString("distributionLevel", DistributionLevel.NORMAL),
-            moderationReviewStatus = json.getString("moderationReviewStatus")
-        )
+            moderationReviewStatus = json.optString("moderationReviewStatus").ifBlank { null }        )
     }
 
     /** [parentCommentId] null = bình luận gốc, khác null = trả lời bình luận đó. */
@@ -68,7 +67,7 @@ class CommunityApi(
         return CreatePostResult(
             postId = json.optString("postId", postId),
             distributionLevel = json.optString("distributionLevel", DistributionLevel.NORMAL),
-            moderationReviewStatus =json.getString("moderationReviewStatus")
+            moderationReviewStatus = json.optString("moderationReviewStatus").ifBlank { null }
         )
     }
 

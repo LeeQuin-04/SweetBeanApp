@@ -26,7 +26,8 @@ data class EditPostUiState(
     val visibility: String = PostVisibility.PUBLIC,
     val isSaving: Boolean = false,
     val savedLevel: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val moderationReviewStatus: String? = null
 ) {
     val hasChanges: Boolean
         get() {
@@ -106,7 +107,7 @@ class EditPostViewModel(
             _uiState.update { it.copy(isSaving = true, errorMessage = null) }
             try {
                 val result = api.editPost(postId, state.text.trim(), state.visibility)
-                _uiState.update { it.copy(isSaving = false, savedLevel = result.distributionLevel) }
+                _uiState.update { it.copy(isSaving = false, savedLevel = result.distributionLevel, moderationReviewStatus = result.moderationReviewStatus) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: CommunityApiException) {
@@ -130,7 +131,7 @@ class EditPostViewModel(
 
     /** Gọi sau khi đã xử lý kết quả lưu để tránh xử lý lại. */
     fun reset() {
-        _uiState.update { it.copy(savedLevel = null) }
+        _uiState.update { it.copy(savedLevel = null, moderationReviewStatus = null) }
     }
 
     private fun messageFor(e: CommunityApiException): String = when {

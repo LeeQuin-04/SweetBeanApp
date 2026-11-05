@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sweetbean.data.community.DistributionLevel
+import com.example.sweetbean.data.community.ReviewStatus
 import com.example.sweetbean.di.AuthDependencies
 import com.example.sweetbean.di.CommunityDependencies
 import com.example.sweetbean.ui.community.create.CreatePostScreen
@@ -117,10 +118,11 @@ fun CommunityRoute() {
             // Lưu xong: báo kết quả, về màn trước (bảng tin hoặc chi tiết) và tải lại.
             LaunchedEffect(editState.savedLevel) {
                 val level = editState.savedLevel ?: return@LaunchedEffect
-                val message = if (level == DistributionLevel.NORMAL) {
-                    "Đã lưu thay đổi."
-                } else {
-                    "Đã lưu, nhưng bài viết đang bị giới hạn hiển thị."
+                val message = when {
+                    level == DistributionLevel.NORMAL -> "Đã lưu thay đổi."
+                    editState.moderationReviewStatus == ReviewStatus.PENDING_AI_UNAVAILABLE ->
+                        "Đã lưu, đang chờ kiểm duyệt."
+                    else -> "Đã lưu, nhưng bài viết đang bị giới hạn hiển thị."
                 }
                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 editPostId = null

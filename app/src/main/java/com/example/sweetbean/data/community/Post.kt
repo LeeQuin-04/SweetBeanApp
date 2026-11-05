@@ -44,5 +44,10 @@ data class Post(
 data class CreatePostResult(
     val postId: String,
     val distributionLevel: String,
-    val moderationReviewStatus: String
+    val moderationReviewStatus: String? = null
 )
+
+object ReviewStatus {
+    const val PENDING_AI_UNAVAILABLE = "pending_ai_unavailable"
+    const val PENDING_ADMIN = "pending_admin"
+}
