@@ -62,6 +62,15 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import com.example.sweetbean.ui.common.rememberNightArtFilter
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.foundation.Canvas
+import com.example.sweetbean.ui.journal.emotion.EmotionSet
+import com.example.sweetbean.ui.journal.emotion.LocalEmotionSet
+import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 /** Mỗi cảm xúc một màu, đi từ nắng (vui) đến đêm (buồn). */
 val Emotion.accent: Color
@@ -106,11 +115,34 @@ fun EmotionBadge(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = emotion.emoji, fontSize = (size.value * 0.52f).sp)
+        EmotionIcon(emotion = emotion, size = size * 0.9f)
+    }
+}
+/** Biểu tượng của cảm xúc theo bộ đang chọn. */
+@Composable
+fun EmotionIcon(emotion: Emotion, size: Dp, modifier: Modifier = Modifier) =
+    EmotionIconOf(LocalEmotionSet.current, emotion, size, modifier)
+
+/** Biểu tượng của cảm xúc theo một bộ cụ thể (dùng cho phần xem trước trong bộ chọn). */
+@Composable
+fun EmotionIconOf(set: EmotionSet, emotion: Emotion, size: Dp, modifier: Modifier = Modifier) {
+    val res = set.icons?.get(emotion)
+
+    if (res != null) {
+        Image(
+            painter = painterResource(res),
+            contentDescription = emotion.label,
+            contentScale = ContentScale.Fit,
+            modifier = modifier.size(size)
+        )
+    } else {
+        Box(modifier.size(size), contentAlignment = Alignment.Center) {
+            Text(text = emotion.emoji, fontSize = (size.value * 0.6f).sp)
+        }
     }
 }
 
-/** Emoji lớn ở đầu form: nảy lên mỗi khi đổi cảm xúc. */
+/** Nhân vật lớn ở đầu form: lơ lửng nhẹ, nảy lên và tỏa hạt mỗi khi đổi cảm xúc. */
 @Composable
 fun MoodHero(
     emotion: Emotion?,
@@ -118,41 +150,73 @@ fun MoodHero(
 ) {
     val accent = emotion.accentOrBrand()
     val scale = remember { Animatable(1f) }
+    val burst = remember { Animatable(1f) }
 
     LaunchedEffect(emotion) {
         if (emotion != null) {
-            scale.snapTo(0.6f)
+            launch {
+                burst.snapTo(0f)
+                burst.animateTo(1f, tween(1000, easing = LinearOutSlowInEasing))
+            }
+            scale.snapTo(0.55f)
             scale.animateTo(1f, spring(dampingRatio = 0.3f, stiffness = 250f))
         }
     }
+
+    val idle = rememberInfiniteTransition(label = "heroIdle")
+    val bob by idle.animateFloat(
+        initialValue = -4f,
+        targetValue = 4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bob"
+    )
 
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = Modifier
-                .size(104.dp)
-                .graphicsLayer {
-                    scaleX = scale.value
-                    scaleY = scale.value
-                }
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        listOf(accent.copy(alpha = 0.45f), accent.copy(alpha = 0.10f))
-                    )
-                ),
+            modifier = Modifier.size(140.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = emotion?.emoji ?: "🙂",
-                fontSize = 56.sp,
-                modifier = Modifier.alpha(if (emotion == null) 0.45f else 1f)
+            // Quầng sáng theo màu cảm xúc
+            Box(
+                modifier = Modifier
+                    .size(124.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(accent.copy(alpha = 0.40f), accent.copy(alpha = 0.08f))
+                        )
+                    )
             )
+
+            MoodBurst(
+                emotion = emotion,
+                progress = { burst.value },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    scaleX = scale.value
+                    scaleY = scale.value
+                    translationY = bob.dp.toPx()
+                }
+            ) {
+                // Chưa chọn cảm xúc: hiện mờ nhân vật "bình thường" của bộ đang dùng.
+                EmotionIcon(
+                    emotion = emotion ?: Emotion.NEUTRAL,
+                    size = 104.dp,
+                    modifier = Modifier.alpha(if (emotion == null) 0.4f else 1f)
+                )
+            }
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
 
         Text(
             text = emotion?.label ?: "Hôm nay bạn thấy thế nào?",
@@ -160,6 +224,45 @@ fun MoodHero(
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+/** Hạt tỏa ra từ nhân vật; [progress] chạy từ 0 đến 1 và được đọc trong lúc vẽ nên không làm vẽ lại cả form. */
+@Composable
+private fun MoodBurst(
+    emotion: Emotion?,
+    progress: () -> Float,
+    modifier: Modifier = Modifier
+) {
+    if (emotion == null) return
+
+    val accent = emotion.accent
+    val rising = emotion == Emotion.VERY_HAPPY || emotion == Emotion.HAPPY
+    val falling = emotion == Emotion.SAD || emotion == Emotion.VERY_SAD
+
+    Canvas(modifier) {
+        val p = progress()
+        if (p >= 1f) return@Canvas
+
+        val reach = size.minDimension * 0.5f
+        val count = 12
+
+        for (i in 0 until count) {
+            val angle = 2.0 * PI * i / count
+            val dx = (cos(angle) * reach * p * (if (falling) 0.55f else 1f)).toFloat()
+            val spread = (sin(angle) * reach * p).toFloat()
+            val dy = when {
+                rising -> -abs(spread) - reach * 0.25f * p         // bay lên và tỏa ra
+                falling -> abs(spread) * 0.5f + reach * 0.6f * p   // rơi xuống như mưa
+                else -> spread * 0.4f                              // bình thường: lan nhẹ
+            }
+
+            drawCircle(
+                color = accent.copy(alpha = (1f - p).coerceIn(0f, 1f)),
+                radius = size.minDimension * 0.03f * (1f - 0.4f * p),
+                center = Offset(center.x + dx, center.y + dy)
+            )
+        }
     }
 }
 
@@ -207,7 +310,7 @@ fun EmotionPicker(
                     .semantics { contentDescription = emotion.label },
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = emotion.emoji, fontSize = 28.sp)
+                EmotionIcon(emotion = emotion, size = 44.dp)
             }
         }
     }

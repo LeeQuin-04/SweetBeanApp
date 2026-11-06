@@ -69,6 +69,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.platform.LocalDensity
+import com.example.sweetbean.ui.journal.emotion.EmotionSetButton
 
 @Composable
 fun JournalEditorScreen(
@@ -130,7 +131,9 @@ fun JournalEditorScreen(
                 .padding(bottom = barPadding)
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                    .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
@@ -141,6 +144,8 @@ fun JournalEditorScreen(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
+                Spacer(Modifier.weight(1f))
+                EmotionSetButton(Modifier.padding(end = 16.dp))
             }
 
             Column(

@@ -52,16 +52,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.sweetbean.data.journal.Emotion
 import com.example.sweetbean.data.journal.Journal
 import com.example.sweetbean.ui.common.LocalFloatingBarHeight
 import com.example.sweetbean.ui.journal.JournalFormat
 import com.example.sweetbean.ui.journal.components.EmotionBadge
+import com.example.sweetbean.ui.journal.components.EmotionIcon
 import com.example.sweetbean.ui.journal.components.JournalBackdrop
 import com.example.sweetbean.ui.journal.components.MediaThumb
 import com.example.sweetbean.ui.journal.components.accent
 import com.example.sweetbean.ui.journal.components.bouncyClickable
 import java.util.Calendar
 import com.example.sweetbean.ui.journal.components.JournalScene
+import com.example.sweetbean.ui.journal.emotion.EmotionSetButton
 
 @Composable
 fun JournalListScreen(
@@ -184,11 +187,13 @@ private fun ListHeader(
 
         Spacer(Modifier.height(16.dp))
 
-        Row(horizontalArrangement = Arrangement.Center) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            modifier = Modifier.fillMaxWidth()
+        ) {
             PeriodChip("Tháng ${uiState.month}", monthOptions, onMonthSelected)
             PeriodChip(uiState.year.toString(), yearOptions, onYearSelected)
+            EmotionSetButton()
         }
-        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -254,7 +259,7 @@ private fun TimelineDay(
                     val x = 14.dp.toPx()
                     drawLine(
                         color = rail,
-                        start = Offset(x, 30.dp.toPx()),
+                        start = Offset(x, 38.dp.toPx()),
                         end = Offset(x, size.height),
                         strokeWidth = 2.dp.toPx(),
                         cap = StrokeCap.Round
@@ -270,17 +275,12 @@ private fun TimelineDay(
         ) {
             Box(
                 modifier = Modifier
-                    .size(22.dp)
+                    .size(28.dp)
                     .clip(CircleShape)
                     .background(accent.copy(alpha = 0.28f)),
                 contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(accent)
-                )
+                EmotionIcon(emotion = first.emotion, size = 22.dp)
             }
         }
 
@@ -438,7 +438,7 @@ private fun EmptyState() {
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text("📖", fontSize = 52.sp)
+            EmotionIcon(emotion = Emotion.HAPPY, size = 84.dp)
         }
 
         Spacer(Modifier.height(20.dp))

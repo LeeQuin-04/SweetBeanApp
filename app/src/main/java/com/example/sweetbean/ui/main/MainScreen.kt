@@ -41,6 +41,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.CircleShape
 import com.example.sweetbean.ui.community.CommunityRoute
 import androidx.compose.foundation.layout.consumeWindowInsets
+import com.example.sweetbean.ui.journal.emotion.ProvideEmotionSet
+import com.example.sweetbean.ui.journal.emotion.EmotionSetButton
 
 private enum class MainTab(val label: String, val icon: ImageVector) {
     Home("Trang chủ", Icons.Default.Home),
@@ -59,45 +61,47 @@ fun MainScreen(
     var currentTab by rememberSaveable { mutableStateOf(MainTab.Home) }
     val reservedBottom = FloatingBarHeight + FloatingBarMargin
 
-    Scaffold { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
-        ) {
-            CompositionLocalProvider(LocalFloatingBarHeight provides reservedBottom) {
-                when (currentTab) {
-                    MainTab.Journal -> JournalRoute()
+    ProvideEmotionSet {
+        Scaffold { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding)
+            ) {
+                CompositionLocalProvider(LocalFloatingBarHeight provides reservedBottom) {
+                    when (currentTab) {
+                        MainTab.Journal -> JournalRoute()
 
-                    MainTab.Home -> Box(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(bottom = reservedBottom)
-                    ) {
-                        HomeScreen(onLogout = onLogout)
-                    }
+                        MainTab.Home -> Box(
+                            Modifier
+                                .fillMaxSize()
+                                .padding(bottom = reservedBottom)
+                        ) {
+                            HomeScreen(onLogout = onLogout)
+                        }
 
-                    MainTab.Community -> CommunityRoute()
+                        MainTab.Community -> CommunityRoute()
 
-                    else -> Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = reservedBottom),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("${currentTab.label} (sắp có)")
+                        else -> Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = reservedBottom),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("${currentTab.label} (sắp có)")
+                        }
                     }
                 }
-            }
 
-            FloatingNavBar(
-                currentTab = currentTab,
-                onTabSelected = { currentTab = it },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(start = 16.dp, end = 16.dp, bottom = FloatingBarMargin)
-            )
+                FloatingNavBar(
+                    currentTab = currentTab,
+                    onTabSelected = { currentTab = it },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(start = 16.dp, end = 16.dp, bottom = FloatingBarMargin)
+                )
+            }
         }
     }
 }
