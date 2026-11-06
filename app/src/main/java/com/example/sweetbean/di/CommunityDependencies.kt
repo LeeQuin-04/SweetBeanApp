@@ -12,6 +12,8 @@ import com.example.sweetbean.ui.community.feed.CommunityFeedViewModel
 import com.example.sweetbean.ui.community.detail.PostDetailViewModel
 import com.example.sweetbean.ui.community.edit.EditPostViewModel
 import com.example.sweetbean.ui.community.search.SearchViewModel
+import com.example.sweetbean.ui.community.profile.ProfileViewModel
+import com.example.sweetbean.ui.community.report.ReportViewModel
 object CommunityDependencies {
 
     private val repository: CommunityRepository by lazy {
@@ -47,5 +49,14 @@ object CommunityDependencies {
         }
     fun searchViewModelFactory(uid: String): ViewModelProvider.Factory = viewModelFactory {
         initializer { SearchViewModel(uid, repository) }
+    }
+    fun profileViewModelFactory(uid:String, profileId:String): ViewModelProvider.Factory = viewModelFactory{
+        initializer { ProfileViewModel(uid, profileId, repository, api) }
+    }
+    fun reportViewModelFactory(uid: String): ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            val application = checkNotNull(this[APPLICATION_KEY])
+            ReportViewModel(uid, api, CloudinaryMediaUploader(application.contentResolver))
+        }
     }
 }

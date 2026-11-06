@@ -59,6 +59,8 @@ import com.example.sweetbean.data.community.Post
 import com.example.sweetbean.data.community.PostVisibility
 import com.example.sweetbean.ui.common.LocalFloatingBarHeight
 import com.example.sweetbean.ui.community.CommunityFormat
+import com.example.sweetbean.ui.community.components.LocalReportHandler
+import com.example.sweetbean.data.community.ReportTarget
 import com.example.sweetbean.ui.community.components.PostMediaGrid
 import com.example.sweetbean.ui.community.components.PostMenu
 import com.example.sweetbean.ui.community.components.UserAvatar
@@ -78,7 +80,8 @@ fun CommunityFeedScreen(
     onDeleteClick: (String) -> Unit,
     onHideClick: (String) -> Unit,
     onEditClick: (String) -> Unit,
-    onSearchClick: () -> Unit
+    onSearchClick: () -> Unit,
+    onAuthorClick: (String) -> Unit
 ) {
     val barHeight = LocalFloatingBarHeight.current
     val tabs = FeedTab.entries
@@ -144,7 +147,8 @@ fun CommunityFeedScreen(
                     onPostClick = onPostClick,
                     onDeleteClick = onDeleteClick,
                     onHideClick = onHideClick,
-                    onEditClick = onEditClick
+                    onEditClick = onEditClick,
+                    onAuthorClick = onAuthorClick
                 )
             }
         }
@@ -178,7 +182,8 @@ private fun FeedPage(
     onPostClick: (String) -> Unit,
     onDeleteClick: (String) -> Unit,
     onHideClick: (String) -> Unit,
-    onEditClick: (String) -> Unit
+    onEditClick: (String) -> Unit,
+    onAuthorClick: (String) -> Unit
 ) {
     val listState = rememberLazyListState()
 
@@ -225,7 +230,8 @@ private fun FeedPage(
                         onFollow = { onFollowClick(item.post.authorId) },
                         onEdit = { onEditClick(item.post.id) },
                         onDelete = { onDeleteClick(item.post.id) },
-                        onHide = { onHideClick(item.post.id) }
+                        onHide = { onHideClick(item.post.id) },
+                        onAuthorClick = { onAuthorClick(item.post.authorId) }
                     )
                 }
                 if (state.isLoadingMore) {
@@ -303,7 +309,7 @@ private fun EmptyFeed(tab: FeedTab, state: FeedTabState, followingIds: Set<Strin
 }
 
 @Composable
-private fun PostCard(
+internal fun PostCard(
     item: FeedItem,
     isOwn: Boolean,
     isFollowing: Boolean,
@@ -312,12 +318,15 @@ private fun PostCard(
     onFollow: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onHide: () -> Unit
+    onHide: () -> Unit,
+    showFollow: Boolean = true,
+    onAuthorClick: () -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
     val name = item.author?.displayName?.ifBlank { null } ?: "Người dùng SweetBean"
     val username = item.author?.username.orEmpty()
     val note = if (isOwn) ownerNote(item.post) else null
+    val report = LocalReportHandler.current
 
     Surface(
         shape = RoundedCornerShape(22.dp),
@@ -329,32 +338,40 @@ private fun PostCard(
     ) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                UserAvatar(url = item.author?.avatarUrl, name = name, size = 44.dp)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = name,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = colors.onSurface
-                    )
-                    Text(
-                        text = buildString {
-                            if (username.isNotBlank()) append("@$username · ")
-                            append(CommunityFormat.timeAgo(item.post.createdAtMillis))
-                            if (item.post.editedAtMillis != null) append(" · đã chỉnh sửa")
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = colors.onSurfaceVariant
-                    )
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onAuthorClick),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    UserAvatar(url = item.author?.avatarUrl, name = name, size = 44.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = name,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = colors.onSurface
+                        )
+                        Text(
+                            text = buildString {
+                                if (username.isNotBlank()) append("@$username · ")
+                                append(CommunityFormat.timeAgo(item.post.createdAtMillis))
+                                if (item.post.editedAtMillis != null) append(" · đã chỉnh sửa")
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = colors.onSurfaceVariant
+                        )
+                    }
                 }
-                if (!isOwn) {
+                if (!isOwn && showFollow) {
                     FollowChip(following = isFollowing, onClick = onFollow)
                 }
-                PostMenu(isOwn = isOwn, onEdit = onEdit, onDelete = onDelete, onHide = onHide)
+                PostMenu(isOwn = isOwn, onEdit = onEdit, onDelete = onDelete, onHide = onHide, onReport = { report(ReportTarget.POST, item.post.id) })
             }
 
             if (note != null) {

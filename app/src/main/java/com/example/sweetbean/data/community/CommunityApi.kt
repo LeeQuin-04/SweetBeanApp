@@ -55,6 +55,25 @@ class CommunityApi(
     suspend fun deletePost(postId: String) {
         postJson("/posts/delete", JSONObject().apply { put("postId", postId) })
     }
+
+    suspend fun createReport(
+        targetType: String,
+        targetId: String,
+        reasonCode: String,
+        description: String,
+        evidenceUrls: List<String> = emptyList()
+    ) {
+        postJson(
+            "/reports",
+            JSONObject().apply {
+                put("targetType", targetType)
+                put("targetId", targetId)
+                put("reasonCode", reasonCode)
+                if (description.isNotBlank()) put("description", description.trim())
+                if (evidenceUrls.isNotEmpty()) put("evidenceUrls", JSONArray(evidenceUrls))
+            }
+        )
+    }
     suspend fun editPost(postId: String, text: String, visibility: String): CreatePostResult {
         val json = postJson(
             "/posts/edit",

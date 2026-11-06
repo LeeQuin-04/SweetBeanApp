@@ -41,6 +41,24 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.sweetbean.data.journal.JournalMedia
 import com.example.sweetbean.ui.journal.components.MediaThumb
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.runtime.staticCompositionLocalOf
+import com.example.sweetbean.data.community.ReportLimits
+import com.example.sweetbean.data.community.ReportReason
+import com.example.sweetbean.data.community.ReportTarget
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.OutlinedButton
 
 @Composable
 fun UserAvatar(
@@ -75,13 +93,17 @@ fun UserAvatar(
     }
 }
 
+/** Màn nào cũng có thể gọi (loại đối tượng, id) để mở hộp thoại báo cáo; Route cung cấp hàm thật. */
+val LocalReportHandler = staticCompositionLocalOf<(String, String) -> Unit> { { _, _ -> } }
+
 /** Nút ⋮: bài của mình có "Xóa bài viết" (hỏi xác nhận), bài người khác có "Ẩn bài viết". */
 @Composable
 fun PostMenu(
     isOwn: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onHide: () -> Unit
+    onHide: () -> Unit,
+    onReport: () -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
     var open by remember { mutableStateOf(false) }
@@ -117,6 +139,13 @@ fun PostMenu(
                     onClick = {
                         open = false
                         onHide()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Báo cáo bài viết", color = colors.error) },
+                    onClick = {
+                        open = false
+                        onReport()
                     }
                 )
             }
@@ -241,4 +270,138 @@ private fun MediaTile(
             }
         }
     }
+}
+
+@Composable
+fun ReportDialog(
+    targetType: String,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (ReportReason, String, List<Uri>) -> Unit
+) {
+    var selected by remember { mutableStateOf<ReportReason?>(null) }
+    var description by remember { mutableStateOf("") }
+    var evidence by remember { mutableStateOf<List<Uri>>(emptyList()) }
+
+    val picker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(ReportLimits.MAX_EVIDENCE)
+    ) { uris ->
+        evidence = (evidence + uris).distinct().take(ReportLimits.MAX_EVIDENCE)
+    }
+
+    val title = when (targetType) {
+        ReportTarget.POST -> "Báo cáo bài viết"
+        ReportTarget.COMMENT -> "Báo cáo bình luận"
+        else -> "Báo cáo tài khoản"
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isSubmitting) onDismiss() },
+        title = { Text(title) },
+        text = {
+            Column(
+                Modifier
+                    .heightIn(max = 460.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "Chọn một lý do:",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ReportReason.entries.forEach { reason ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable(enabled = !isSubmitting) { selected = reason },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selected == reason,
+                            onClick = { selected = reason },
+                            enabled = !isSubmitting
+                        )
+                        Text(reason.label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it.take(ReportLimits.MAX_DESCRIPTION_LENGTH) },
+                    label = { Text("Mô tả thêm (không bắt buộc)") },
+                    minLines = 2,
+                    maxLines = 4,
+                    enabled = !isSubmitting,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "Ảnh bằng chứng (không bắt buộc, tối đa ${ReportLimits.MAX_EVIDENCE})",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    evidence.forEach { uri ->
+                        Box {
+                            MediaThumb(
+                                model = uri,
+                                isVideo = false,
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(2.dp)
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.55f))
+                                    .clickable(enabled = !isSubmitting) { evidence = evidence - uri },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Bỏ ảnh",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+                    }
+                    if (evidence.size < ReportLimits.MAX_EVIDENCE) {
+                        OutlinedButton(
+                            onClick = {
+                                picker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            enabled = !isSubmitting
+                        ) { Text("🖼  Thêm ảnh") }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { selected?.let { onSubmit(it, description, evidence) } },
+                enabled = selected != null && !isSubmitting
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Gửi báo cáo")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text("Hủy") }
+        }
+    )
 }

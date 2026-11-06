@@ -4,7 +4,6 @@ import android.util.Log
 import com.example.sweetbean.data.journal.JournalMedia
 import com.example.sweetbean.data.journal.MediaType
 import com.example.sweetbean.di.AuthDependencies
-import com.example.sweetbean.di.AuthDependencies.firestore
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
@@ -342,6 +341,63 @@ class CommunityRepository(
                     avatarUrl = doc.getString("avatarUrl")
                 )
             }
+    }
+    suspend fun getPublicProfile(userId: String): PublicProfile? {
+        val doc = firestore.collection(USERS).document(userId).get().await()
+        if (!doc.exists()) return null
+
+        return PublicProfile(
+            id = doc.id,
+            displayName = doc.getString("displayName").orEmpty(),
+            username = doc.getString("username").orEmpty(),
+            bio = doc.getString("bio").orEmpty(),
+            avatarUrl = doc.getString("avatarUrl"),
+            followersCount = doc.getLong("followersCount") ?: 0L,
+            followingCount = doc.getLong("followingCount") ?: 0L,
+            postsCount = doc.getLong("postsCount") ?: 0L
+        )
+    }
+
+    suspend fun isFollowing(uid: String, targetId: String): Boolean =
+        firestore.collection(FOLLOWS).document("${uid}_$targetId").get().await().exists()
+
+    /**
+     * Bài của một người, theo quyền của người xem:
+     * chính mình = mọi bài; người đang theo dõi = NORMAL + LIMITED (cả "Người theo dõi");
+     * người chưa theo dõi = chỉ PUBLIC + NORMAL.
+     */
+    suspend fun loadUserPostsPage(
+        viewerId: String,
+        ownerId: String,
+        viewerFollows: Boolean,
+        cursor: DocumentSnapshot?
+    ): FeedPage {
+        var query: Query = firestore.collection(POSTS).whereEqualTo("authorId", ownerId)
+
+        query = when {
+            viewerId == ownerId -> query
+            viewerFollows -> query.whereIn(
+                "distributionLevel",
+                listOf(DistributionLevel.NORMAL, DistributionLevel.LIMITED)
+            )
+            else -> query
+                .whereEqualTo("visibility", PostVisibility.PUBLIC)
+                .whereEqualTo("distributionLevel", DistributionLevel.NORMAL)
+        }
+
+        query = query
+            .whereEqualTo("deletedAt", null)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(PAGE_SIZE.toLong())
+
+        if (cursor != null) query = query.startAfter(cursor)
+
+        val snapshot = query.get().await()
+        return FeedPage(
+            posts = snapshot.documents.mapNotNull { it.toPost() }.filter { !it.isHidden },
+            cursor = snapshot.documents.lastOrNull(),
+            endReached = snapshot.size() < PAGE_SIZE
+        )
     }
 }
 

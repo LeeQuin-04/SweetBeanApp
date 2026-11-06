@@ -60,6 +60,8 @@ import com.example.sweetbean.ui.community.components.PostMenu
 import com.example.sweetbean.ui.community.components.UserAvatar
 import com.example.sweetbean.ui.community.feed.FollowChip
 import com.example.sweetbean.ui.journal.detail.MediaViewerDialog
+import com.example.sweetbean.data.community.ReportTarget
+import com.example.sweetbean.ui.community.components.LocalReportHandler
 
 @Composable
 fun PostDetailScreen(
@@ -76,12 +78,14 @@ fun PostDetailScreen(
     onToggleThread: (String) -> Unit,
     onCancelReply: () -> Unit,
     onInputChange: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    onAuthorClick: (String) -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     val barHeight = LocalFloatingBarHeight.current
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val post = uiState.post
+    val report = LocalReportHandler.current
 
     Column(
         Modifier
@@ -109,7 +113,8 @@ fun PostDetailScreen(
                     isOwn = post.authorId == currentUid,
                     onDelete = onDeletePost,
                     onHide = onHidePost,
-                    onEdit = onEditPost
+                    onEdit = onEditPost,
+                    onReport = { report(ReportTarget.POST, post.id) }
                 )
             }
         }
@@ -146,7 +151,8 @@ fun PostDetailScreen(
                             post = post,
                             currentUid = currentUid,
                             onPostLike = onPostLike,
-                            onFollow = onFollow
+                            onFollow = onFollow,
+                            onAuthorClick = { onAuthorClick(post.authorId) }
                         )
                     }
                     item {
@@ -174,7 +180,8 @@ fun PostDetailScreen(
                             replyTargetId = uiState.replyTarget?.comment?.id,
                             onCommentLike = onCommentLike,
                             onReply = onReply,
-                            onToggle = { onToggleThread(thread.root.comment.id) }
+                            onToggle = { onToggleThread(thread.root.comment.id) },
+                            onAuthorClick = onAuthorClick
                         )
                     }
                 }
@@ -199,7 +206,8 @@ private fun PostBody(
     post: Post,
     currentUid: String,
     onPostLike: () -> Unit,
-    onFollow: () -> Unit
+    onFollow: () -> Unit,
+    onAuthorClick: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     val name = uiState.author?.displayName?.ifBlank { null } ?: "Người dùng SweetBean"
@@ -208,25 +216,33 @@ private fun PostBody(
 
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            UserAvatar(url = uiState.author?.avatarUrl, name = name, size = 46.dp)
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = name,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = colors.onSurface
-                )
-                Text(
-                    text = buildString {
-                        if (username.isNotBlank()) append("@$username · ")
-                        append(CommunityFormat.timeAgo(post.createdAtMillis))
-                        if (post.editedAtMillis != null) append(" · đã chỉnh sửa")
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant
-                )
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onAuthorClick),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                UserAvatar(url = uiState.author?.avatarUrl, name = name, size = 46.dp)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = name,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = colors.onSurface
+                    )
+                    Text(
+                        text = buildString {
+                            if (username.isNotBlank()) append("@$username · ")
+                            append(CommunityFormat.timeAgo(post.createdAtMillis))
+                            if (post.editedAtMillis != null) append(" · đã chỉnh sửa")
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant
+                    )
+                }
             }
             if (post.authorId != currentUid) {
                 FollowChip(following = uiState.isFollowingAuthor, onClick = onFollow)
@@ -306,9 +322,11 @@ private fun ThreadView(
     replyTargetId: String?,
     onCommentLike: (String) -> Unit,
     onReply: (CommentItem, CommentItem) -> Unit,
+    onAuthorClick: (String) -> Unit,
     onToggle: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
+    val report = LocalReportHandler.current
 
     Column {
         CommentRow(
@@ -318,7 +336,8 @@ private fun ThreadView(
             postAuthorId = postAuthorId,
             highlighted = replyTargetId == thread.root.comment.id,
             onLike = { onCommentLike(thread.root.comment.id) },
-            onReply = { onReply(thread.root, thread.root) }
+            onReply = { onReply(thread.root, thread.root) },
+            onAuthorClick = onAuthorClick
         )
 
         // Thu gọn: chỉ hiện reply đầu tiên, phần còn lại mở bằng "Xem thêm".
@@ -336,7 +355,8 @@ private fun ThreadView(
                         postAuthorId = postAuthorId,
                         highlighted = replyTargetId == reply.comment.id,
                         onLike = { onCommentLike(reply.comment.id) },
-                        onReply = { onReply(thread.root, reply) }
+                        onReply = { onReply(thread.root, reply) },
+                        onAuthorClick = onAuthorClick
                     )
                 }
                 if (thread.replies.size > 1) {
@@ -363,8 +383,10 @@ private fun CommentRow(
     postAuthorId: String,
     highlighted: Boolean,
     onLike: () -> Unit,
-    onReply: () -> Unit
+    onReply: () -> Unit,
+    onAuthorClick: (String) -> Unit
 ) {
+    val report = LocalReportHandler.current
     val colors = MaterialTheme.colorScheme
     val comment = item.comment
     val name = item.author?.displayName?.ifBlank { null } ?: "Người dùng SweetBean"
@@ -389,7 +411,12 @@ private fun CommentRow(
             .background(if (highlighted) colors.primaryContainer.copy(alpha = 0.35f) else Color.Transparent)
             .padding(4.dp)
     ) {
-        UserAvatar(url = item.author?.avatarUrl, name = name, size = if (isReply) 30.dp else 38.dp)
+        UserAvatar(
+            url = item.author?.avatarUrl,
+            name = name,
+            size = if (isReply) 30.dp else 38.dp,
+            modifier = Modifier.clickable { onAuthorClick(comment.authorId) }
+        )
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -400,7 +427,9 @@ private fun CommentRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = colors.onSurface,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .clickable { onAuthorClick(comment.authorId) }
                 )
                 if (isPostAuthor) {
                     Spacer(Modifier.width(6.dp))
@@ -474,6 +503,16 @@ private fun CommentRow(
                         .clickable(onClick = onReply)
                         .padding(vertical = 2.dp)
                 )
+                if (comment.authorId != currentUid) {
+                    Text(
+                        text = "Báo cáo",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.onSurfaceVariant,
+                        modifier = Modifier
+                            .clickable { report(ReportTarget.COMMENT, comment.id) }
+                            .padding(vertical = 2.dp)
+                    )
+                }
             }
         }
     }

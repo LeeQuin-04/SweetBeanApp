@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,13 +34,17 @@ import androidx.compose.ui.unit.dp
 import com.example.sweetbean.ui.common.LocalFloatingBarHeight
 import com.example.sweetbean.ui.community.components.UserAvatar
 import com.example.sweetbean.ui.community.feed.FollowChip
-
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.draw.clip
 @Composable
 fun SearchScreen(
     uiState: SearchUiState,
     onBack: () -> Unit,
     onQueryChange: (String) -> Unit,
-    onFollowClick: (String) -> Unit
+    onFollowClick: (String) -> Unit,
+    onUserClick: (String) -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     val barHeight = LocalFloatingBarHeight.current
@@ -63,7 +65,7 @@ fun SearchScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
             }
             OutlinedTextField(
                 value = uiState.query,
@@ -97,7 +99,12 @@ fun SearchScreen(
                 ) {
                     items(uiState.results, key = { it.id }) { user ->
                         val name = user.displayName.ifBlank { user.username }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onUserClick(user.id) },
+                            verticalAlignment = Alignment.CenterVertically)
+                        {
                             UserAvatar(url = user.avatarUrl, name = name, size = 48.dp)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
