@@ -65,6 +65,7 @@ import com.example.sweetbean.ui.journal.components.bouncyClickable
 import java.util.Calendar
 import com.example.sweetbean.ui.journal.components.JournalScene
 import com.example.sweetbean.ui.journal.emotion.EmotionSetButton
+import com.example.sweetbean.ui.journal.tree.EmotionTreeButton
 
 @Composable
 fun JournalListScreen(
@@ -72,7 +73,8 @@ fun JournalListScreen(
     onMonthSelected: (Int) -> Unit,
     onYearSelected: (Int) -> Unit,
     onJournalClick: (Journal) -> Unit,
-    onCreateClick: () -> Unit
+    onCreateClick: () -> Unit,
+    onOpenTree: () -> Unit
 ) {
     val barHeight = LocalFloatingBarHeight.current
     val now = remember { Calendar.getInstance() }
@@ -117,7 +119,8 @@ fun JournalListScreen(
                     monthOptions = monthOptions,
                     yearOptions = yearOptions,
                     onMonthSelected = onMonthSelected,
-                    onYearSelected = onYearSelected
+                    onYearSelected = onYearSelected,
+                    onOpenTree = onOpenTree
                 )
             }
 
@@ -166,7 +169,9 @@ private fun ListHeader(
     monthOptions: List<Pair<Int, String>>,
     yearOptions: List<Pair<Int, String>>,
     onMonthSelected: (Int) -> Unit,
-    onYearSelected: (Int) -> Unit
+    onYearSelected: (Int) -> Unit,
+    onOpenTree: () -> Unit
+
 ) {
     Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp)) {
         Text(
@@ -193,6 +198,7 @@ private fun ListHeader(
             PeriodChip("Tháng ${uiState.month}", monthOptions, onMonthSelected)
             PeriodChip(uiState.year.toString(), yearOptions, onYearSelected)
             EmotionSetButton()
+            EmotionTreeButton(onClick = onOpenTree)
         }
     }
 }

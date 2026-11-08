@@ -48,12 +48,24 @@ object EmotionSets {
         )
     )
 
+    val Animal = EmotionSet(
+        id = "animal",
+        label = "Động vật",
+        icons = mapOf(
+            Emotion.VERY_HAPPY to R.drawable.emo_animal_very_happy,
+            Emotion.HAPPY to R.drawable.emo_animal_happy,
+            Emotion.NEUTRAL to R.drawable.emo_animal_neutral,
+            Emotion.SAD to R.drawable.emo_animal_sad,
+            Emotion.VERY_SAD to R.drawable.emo_animal_very_sad
+        )
+    )
+
     val System = EmotionSet(id = "system", label = "Emoji", icons = null)
 
     /**
      * Thứ tự hiển thị trong bộ chọn.
      */
-    val all: List<EmotionSet> = listOf(Bean, Cloud, System)
+    val all: List<EmotionSet> = listOf(Bean, Cloud, Animal, System)
 
     val default: EmotionSet = Bean
 

@@ -52,6 +52,25 @@ class JournalRepository(
 
         awaitClose { registration.remove() }
     }
+    /** Toàn bộ nhật ký của một năm (đọc một lần), dùng cho Cây cảm xúc. */
+    suspend fun loadYear(uid: String, year: Int): List<Journal> {
+        val start = Calendar.getInstance().apply {
+            clear()
+            set(year, 0, 1)
+        }
+        val end = (start.clone() as Calendar).apply { add(Calendar.YEAR, 1) }
+
+        val snapshot = firestore
+            .collection(JOURNALS_COLLECTION)
+            .whereEqualTo("userId", uid)
+            .whereGreaterThanOrEqualTo("date", Timestamp(start.time))
+            .whereLessThan("date", Timestamp(end.time))
+            .orderBy("date", Query.Direction.DESCENDING) // cùng chỉ mục với truy vấn theo tháng
+            .get()
+            .await()
+
+        return snapshot.documents.mapNotNull { it.toJournal() }
+    }
 
     /** Nhật ký của hôm nay (nếu đã có). Mỗi ngày chỉ một nhật ký nhờ ID cố định theo ngày. */
     suspend fun findToday(uid: String): Journal? {
@@ -122,7 +141,6 @@ class JournalRepository(
 }
 
 private fun DocumentSnapshot.toJournal(): Journal? = try {
-    // ESTIMATE: bản ghi vừa tạo ở máy mình có serverTimestamp chưa được server xác nhận.
     val date = getTimestamp("date", DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
     val emotion = Emotion.fromKey(getString("emotion"))
 

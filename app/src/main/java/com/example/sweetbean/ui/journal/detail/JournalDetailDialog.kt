@@ -104,6 +104,7 @@ fun JournalDetailDialog(
                     Column(
                         modifier = Modifier
                             .weight(1f, fill = false)
+                            .fillMaxWidth()
                             .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(10.dp)

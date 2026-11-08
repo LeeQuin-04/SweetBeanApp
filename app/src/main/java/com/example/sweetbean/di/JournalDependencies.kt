@@ -8,6 +8,7 @@ import com.example.sweetbean.data.journal.JournalRepository
 import com.example.sweetbean.data.media.CloudinaryMediaUploader
 import com.example.sweetbean.ui.journal.editor.JournalEditorViewModel
 import com.example.sweetbean.ui.journal.list.JournalListViewModel
+import com.example.sweetbean.ui.journal.tree.EmotionTreeViewModel
 
 object JournalDependencies {
 
@@ -30,5 +31,9 @@ object JournalDependencies {
                 uploader = CloudinaryMediaUploader(application.contentResolver)
             )
         }
+    }
+
+    fun emotionTreeViewModelFactory(uid: String): ViewModelProvider.Factory = viewModelFactory {
+        initializer { EmotionTreeViewModel(uid, journalRepository) }
     }
 }

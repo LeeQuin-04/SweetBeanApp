@@ -19,6 +19,8 @@ import com.example.sweetbean.ui.journal.editor.JournalEditorScreen
 import com.example.sweetbean.ui.journal.editor.JournalEditorViewModel
 import com.example.sweetbean.ui.journal.list.JournalListScreen
 import com.example.sweetbean.ui.journal.list.JournalListViewModel
+import com.example.sweetbean.ui.journal.tree.EmotionTreeScreen
+import com.example.sweetbean.ui.journal.tree.EmotionTreeViewModel
 
 @Composable
 fun JournalRoute() {
@@ -33,6 +35,19 @@ fun JournalRoute() {
         key = "journal_editor_$uid",
         factory = remember(uid) { JournalDependencies.editorViewModelFactory(uid) }
     )
+    val treeViewModel: EmotionTreeViewModel = viewModel(
+        key = "journal_tree_$uid",
+        factory = remember(uid) { JournalDependencies.emotionTreeViewModelFactory(uid) }
+    )
+    val treeState by treeViewModel.uiState.collectAsStateWithLifecycle()
+    var showTree by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(treeState.errorMessage) {
+        treeState.errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            treeViewModel.consumeError()
+        }
+    }
 
     val listState by listViewModel.uiState.collectAsStateWithLifecycle()
     val editorState by editorViewModel.uiState.collectAsStateWithLifecycle()
@@ -64,7 +79,17 @@ fun JournalRoute() {
         }
     }
 
-    if (showEditor) {
+    if (showTree) {
+        BackHandler { showTree = false }
+        LaunchedEffect(Unit) { treeViewModel.refresh() }   // mở màn hình nào cũng tải lại
+
+        EmotionTreeScreen(
+            uiState = treeState,
+            onBack = { showTree = false },
+            onYearChange = treeViewModel::selectYear,
+            onMonthSelect = treeViewModel::selectMonth
+        )
+    } else if (showEditor) {
         BackHandler { showEditor = false }
 
         JournalEditorScreen(
@@ -87,7 +112,8 @@ fun JournalRoute() {
                 // Hôm nay đã có nhật ký thì mở nó để chỉnh sửa (mỗi ngày một nhật ký).
                 editorViewModel.startToday()
                 showEditor = true
-            }
+            },
+            onOpenTree = { showTree = true }
         )
 
         val selected = remember(listState.groups, selectedId) {
