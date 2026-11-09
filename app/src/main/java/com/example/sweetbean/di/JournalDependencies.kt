@@ -6,11 +6,13 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.sweetbean.data.journal.JournalRepository
 import com.example.sweetbean.data.media.CloudinaryMediaUploader
+import com.example.sweetbean.data.media.MediaCleaner
 import com.example.sweetbean.ui.journal.editor.JournalEditorViewModel
 import com.example.sweetbean.ui.journal.list.JournalListViewModel
 import com.example.sweetbean.ui.journal.tree.EmotionTreeViewModel
 
 object JournalDependencies {
+    private val mediaCleaner: MediaCleaner by lazy { MediaCleaner(AuthDependencies.firebaseAuth) }
 
     private val journalRepository: JournalRepository by lazy {
         JournalRepository(AuthDependencies.firestore)
@@ -19,7 +21,7 @@ object JournalDependencies {
     // Factory nhận uid vì ViewModel sống theo Activity: nếu đăng xuất rồi đăng nhập
     // tài khoản khác thì phải là một ViewModel mới (Route đặt key theo uid).
     fun listViewModelFactory(uid: String): ViewModelProvider.Factory = viewModelFactory {
-        initializer { JournalListViewModel(uid, journalRepository) }
+        initializer { JournalListViewModel(uid, journalRepository, mediaCleaner) }
     }
 
     fun editorViewModelFactory(uid: String): ViewModelProvider.Factory = viewModelFactory {
@@ -28,7 +30,8 @@ object JournalDependencies {
             JournalEditorViewModel(
                 uid = uid,
                 repository = journalRepository,
-                uploader = CloudinaryMediaUploader(application.contentResolver)
+                uploader = CloudinaryMediaUploader(application.contentResolver),
+                mediaCleaner = mediaCleaner
             )
         }
     }
@@ -36,4 +39,5 @@ object JournalDependencies {
     fun emotionTreeViewModelFactory(uid: String): ViewModelProvider.Factory = viewModelFactory {
         initializer { EmotionTreeViewModel(uid, journalRepository) }
     }
+
 }

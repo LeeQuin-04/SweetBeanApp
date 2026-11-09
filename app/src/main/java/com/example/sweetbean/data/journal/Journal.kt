@@ -49,7 +49,6 @@ data class Journal(
     val title: String,
     val text: String,
     val emotion: Emotion,
-    val tags: List<String>,
     val media: List<JournalMedia>
 )
 
@@ -58,6 +57,5 @@ data class JournalDraft(
     val title: String,
     val text: String,
     val emotion: Emotion,
-    val tags: List<String>,
     val media: List<JournalMedia>
 )

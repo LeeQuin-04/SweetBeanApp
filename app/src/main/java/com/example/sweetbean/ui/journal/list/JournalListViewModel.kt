@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.example.sweetbean.data.journal.DayKey
+import com.example.sweetbean.data.media.MediaCleaner
 
 data class JournalDayGroup(
     val label: String,
@@ -35,7 +36,8 @@ data class JournalListUiState(
 @OptIn(ExperimentalCoroutinesApi::class)
 class JournalListViewModel(
     private val uid: String,
-    private val repository: JournalRepository
+    private val repository: JournalRepository,
+    private val mediaCleaner: MediaCleaner
 ) : ViewModel() {
 
     private val period: MutableStateFlow<Pair<Int, Int>>
@@ -78,10 +80,11 @@ class JournalListViewModel(
 
     fun selectYear(year: Int) = changePeriod(year, _uiState.value.month)
 
-    fun delete(journalId: String) {
+    fun delete(journal: Journal) {
         viewModelScope.launch {
             try {
-                repository.delete(journalId)
+                repository.delete(journal.id)
+                mediaCleaner.delete(journal.media)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

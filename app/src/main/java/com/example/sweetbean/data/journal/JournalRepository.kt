@@ -105,7 +105,6 @@ class JournalRepository(
                     "title" to draft.title,
                     "text" to draft.text,
                     "emotion" to draft.emotion.name,
-                    "tags" to draft.tags,
                     "media" to draft.media.map { it.toMap() },
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp()
@@ -125,7 +124,6 @@ class JournalRepository(
                     "title" to draft.title,
                     "text" to draft.text,
                     "emotion" to draft.emotion.name,
-                    "tags" to draft.tags,
                     "media" to draft.media.map { it.toMap() },
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
@@ -158,7 +156,6 @@ private fun DocumentSnapshot.toJournal(): Journal? = try {
             title = getString("title").orEmpty(),
             text = getString("text").orEmpty(),
             emotion = emotion,
-            tags = (get("tags") as? List<*>).orEmpty().filterIsInstance<String>(),
             media = (get("media") as? List<*>).orEmpty()
                 .mapNotNull { (it as? Map<*, *>)?.toJournalMedia() }
         )

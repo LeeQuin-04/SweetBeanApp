@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.example.sweetbean.data.journal.DayKey
+import com.example.sweetbean.data.media.MediaCleaner
 
 /** Một ảnh/video trong form: đã có trên Cloudinary (Remote) hoặc mới chọn từ máy (Local). */
 sealed interface EditorMedia {
@@ -39,7 +40,6 @@ data class JournalEditorUiState(
     val emotion: Emotion? = null,
     val title: String = "",
     val text: String = "",
-    val tags: List<String> = emptyList(),
     val media: List<EditorMedia> = emptyList(),
     val isLoading: Boolean = false, // đang kiểm tra hôm nay đã có nhật ký chưa
     val loadFailed: Boolean = false,
@@ -52,15 +52,18 @@ data class JournalEditorUiState(
 class JournalEditorViewModel(
     private val uid: String,
     private val repository: JournalRepository,
-    private val uploader: CloudinaryMediaUploader
+    private val uploader: CloudinaryMediaUploader,
+    private val mediaCleaner: MediaCleaner
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(JournalEditorUiState())
     val uiState: StateFlow<JournalEditorUiState> = _uiState.asStateFlow()
+    private var originalMedia: List<JournalMedia> = emptyList() //media gốc của nhật ký đang sửa
 
     /** Mở form chỉnh sửa một nhật ký đã có. */
     fun start(journal: Journal) {
         if (_uiState.value.isSaving) return
+        originalMedia = journal.media
         _uiState.value = journal.toEditorState()
     }
 
@@ -70,15 +73,20 @@ class JournalEditorViewModel(
      */
     fun startFor(day: DayKey) {
         if (_uiState.value.isSaving) return
+        originalMedia = emptyList()                        // mặc định là form tạo mới, chưa có media gốc
         _uiState.value = JournalEditorUiState(isLoading = true, day = day)
 
         viewModelScope.launch {
             try {
                 val existing = repository.findDay(uid, day)
-                _uiState.value = existing?.toEditorState()?.copy(
-                    errorMessage = "Ngày ${day.label()} đã có nhật ký, đang mở để chỉnh sửa."
-                )
-                    ?: JournalEditorUiState(day = day)
+                _uiState.value = if (existing == null) {
+                    JournalEditorUiState(day = day)
+                } else {
+                    originalMedia = existing.media         // ngày này đã có nhật ký nên form nạp để sửa
+                    existing.toEditorState().copy(
+                        errorMessage = "Ngày ${day.label()} đã có nhật ký, đang mở để chỉnh sửa."
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -143,12 +151,15 @@ class JournalEditorViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, errorMessage = null) }
 
+            val uploaded = mutableListOf<JournalMedia>()   // ảnh vừa tải lên trong lần lưu này
+
             try {
                 // Giữ nguyên thứ tự: ảnh cũ giữ lại, ảnh mới upload lên Cloudinary.
                 val media = state.media.map { item ->
                     when (item) {
                         is EditorMedia.Remote -> item.media
-                        is EditorMedia.Local -> uploader.upload(item.uri, "journals/$uid")
+                        is EditorMedia.Local ->
+                            uploader.upload(item.uri, "journals/$uid").also { uploaded += it }
                     }
                 }
 
@@ -156,7 +167,6 @@ class JournalEditorViewModel(
                     title = state.title.trim(),
                     text = state.text.trim(),
                     emotion = emotion,
-                    tags = state.tags,
                     media = media
                 )
 
@@ -167,11 +177,17 @@ class JournalEditorViewModel(
                     repository.update(editingId, draft)
                 }
 
+                // Ảnh cũ bị bỏ khỏi nhật ký thì xóa luôn trên Cloudinary.
+                val kept = media.map { it.publicId }.toSet()
+                mediaCleaner.delete(originalMedia.filter { it.publicId !in kept })
+                originalMedia = media
+
                 _uiState.update { it.copy(isSaving = false, isSaved = true) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e("JournalEditor", "save failed", e)
+                mediaCleaner.delete(uploaded)   // lưu thất bại: dọn ảnh vừa tải lên để không bỏ rơi trên Cloudinary
                 _uiState.update {
                     it.copy(
                         isSaving = false,
@@ -188,7 +204,6 @@ class JournalEditorViewModel(
         emotion = emotion,
         title = title,
         text = text,
-        tags = tags,
         media = media.map { EditorMedia.Remote(it) }
     )
 }

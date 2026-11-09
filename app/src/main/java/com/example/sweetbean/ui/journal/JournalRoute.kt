@@ -148,7 +148,7 @@ fun JournalRoute() {
                         showEditor = true
                     },
                     onDelete = {
-                        listViewModel.delete(selected.id)
+                        listViewModel.delete(selected)
                         selectedId = null
                     }
                 )
