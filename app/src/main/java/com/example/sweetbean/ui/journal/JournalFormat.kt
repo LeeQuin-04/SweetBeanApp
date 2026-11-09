@@ -4,6 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import com.example.sweetbean.data.journal.DayKey
 
 object JournalFormat {
     private val vi = Locale("vi", "VN")
@@ -26,4 +27,14 @@ object JournalFormat {
     fun full(millis: Long): String =
         SimpleDateFormat("EEEE, d 'tháng' M 'lúc' HH:mm", vi).format(Date(millis))
             .replaceFirstChar { it.uppercase(vi) }
+
+    /** "Thứ ba, 27 tháng 10, 2026" */
+    fun dayLabel(day: DayKey): String {
+        val calendar = Calendar.getInstance().apply {
+            clear()
+            set(day.year, day.month - 1, day.day)
+        }
+        return SimpleDateFormat("EEEE, d 'tháng' M, yyyy", vi).format(calendar.time)
+            .replaceFirstChar { it.uppercase(vi) }
+    }
 }

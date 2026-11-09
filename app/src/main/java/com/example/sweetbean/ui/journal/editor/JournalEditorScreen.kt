@@ -50,7 +50,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.sweetbean.data.journal.Emotion
 import com.example.sweetbean.data.journal.JournalLimits
@@ -70,6 +69,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.platform.LocalDensity
 import com.example.sweetbean.ui.journal.emotion.EmotionSetButton
+import com.example.sweetbean.ui.journal.JournalFormat
 
 @Composable
 fun JournalEditorScreen(
@@ -139,11 +139,20 @@ fun JournalEditorScreen(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                 }
-                Text(
-                    text = if (isEditing) "Chỉnh sửa nhật ký" else "Tạo nhật ký",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Column {
+                    Text(
+                        text = if (isEditing) "Chỉnh sửa nhật ký" else "Tạo nhật ký",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    uiState.day?.let { day ->
+                        Text(
+                            text = JournalFormat.dayLabel(day),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 Spacer(Modifier.weight(1f))
                 EmotionSetButton(Modifier.padding(end = 16.dp))
             }
@@ -352,19 +361,4 @@ private fun AddMediaTile(accent: Color, enabled: Boolean, onClick: () -> Unit) {
 private fun EditorMedia.previewModel(): Any? = when (this) {
     is EditorMedia.Remote -> media.thumbnailUrl
     is EditorMedia.Local -> if (isVideo) null else uri
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun JournalEditorScreenPreview() {
-    JournalEditorScreen(
-        uiState = JournalEditorUiState(),
-        onBack = {},
-        onEmotionSelected = {},
-        onTitleChange = {},
-        onTextChange = {},
-        onAddMedia = {},
-        onRemoveMedia = {},
-        onSave = {}
-    )
 }

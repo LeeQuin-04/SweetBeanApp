@@ -21,8 +21,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -40,19 +38,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.sweetbean.data.journal.Emotion
 import com.example.sweetbean.data.journal.Journal
 import com.example.sweetbean.ui.common.LocalFloatingBarHeight
 import com.example.sweetbean.ui.journal.JournalFormat
@@ -63,17 +58,23 @@ import com.example.sweetbean.ui.journal.components.MediaThumb
 import com.example.sweetbean.ui.journal.components.accent
 import com.example.sweetbean.ui.journal.components.bouncyClickable
 import java.util.Calendar
-import com.example.sweetbean.ui.journal.components.JournalScene
 import com.example.sweetbean.ui.journal.emotion.EmotionSetButton
 import com.example.sweetbean.ui.journal.tree.EmotionTreeButton
+import com.example.sweetbean.data.journal.DayKey
+import com.example.sweetbean.data.journal.Emotion
+import com.example.sweetbean.ui.journal.JournalViewMode
+import com.example.sweetbean.ui.journal.ViewModeToggle
+import com.example.sweetbean.ui.journal.calendar.JournalCalendar
 
 @Composable
 fun JournalListScreen(
     uiState: JournalListUiState,
+    viewMode: JournalViewMode,
+    onViewModeChange: (JournalViewMode) -> Unit,
     onMonthSelected: (Int) -> Unit,
     onYearSelected: (Int) -> Unit,
     onJournalClick: (Journal) -> Unit,
-    onCreateClick: () -> Unit,
+    onDayClick: (DayKey) -> Unit,
     onOpenTree: () -> Unit
 ) {
     val barHeight = LocalFloatingBarHeight.current
@@ -88,7 +89,7 @@ fun JournalListScreen(
         (currentYear downTo currentYear - 5).map { it to it.toString() }
     }
 
-    // Nhật ký mới nhất của từng ngày trong tháng, dùng cho dải cảm xúc.
+    // Nhật ký mới nhất của từng ngày trong tháng: lịch dùng để gắn nhân vật vào ô ngày.
     val latestByDay: Map<Int, Journal> = remember(uiState.groups) {
         val map = LinkedHashMap<Int, Journal>()
         uiState.groups.forEach { group ->
@@ -98,24 +99,18 @@ fun JournalListScreen(
         }
         map
     }
-    val daysInMonth = remember(uiState.year, uiState.month) {
-        Calendar.getInstance().apply {
-            clear()
-            set(uiState.year, uiState.month - 1, 1)
-        }.getActualMaximum(Calendar.DAY_OF_MONTH)
-    }
     val hasToday = isCurrentMonth && latestByDay.containsKey(today)
 
-    JournalBackdrop(scene = JournalScene.List) {
+    JournalBackdrop {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 112.dp + barHeight)
+            contentPadding = PaddingValues(bottom = 24.dp + barHeight)
         ) {
             item {
                 ListHeader(
                     uiState = uiState,
-                    daysWritten = latestByDay.size,
-                    daysInMonth = daysInMonth,
+                    viewMode = viewMode,
+                    onViewModeChange = onViewModeChange,
                     monthOptions = monthOptions,
                     yearOptions = yearOptions,
                     onMonthSelected = onMonthSelected,
@@ -124,81 +119,121 @@ fun JournalListScreen(
                 )
             }
 
-            when {
-                uiState.isLoading -> item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(48.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
+            when (viewMode) {
+                JournalViewMode.CALENDAR -> item {
+                    JournalCalendar(
+                        year = uiState.year,
+                        month = uiState.month,
+                        journalsByDay = latestByDay,
+                        onDayClick = onDayClick,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
+                    )
                 }
 
-                uiState.groups.isEmpty() -> item { EmptyState() }
+                JournalViewMode.TIMELINE -> {
+                    if (isCurrentMonth && !hasToday && !uiState.isLoading) {
+                        item { TodayPrompt(onClick = { onDayClick(DayKey.today()) }) }
+                    }
 
-                else -> itemsIndexed(
-                    items = uiState.groups,
-                    key = { _, group -> group.label }
-                ) { index, group ->
-                    TimelineDay(
-                        group = group,
-                        isLast = index == uiState.groups.lastIndex,
-                        onJournalClick = onJournalClick
-                    )
+                    when {
+                        uiState.isLoading -> item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(48.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+
+                        uiState.groups.isEmpty() -> item { EmptyState() }
+
+                        else -> itemsIndexed(
+                            items = uiState.groups,
+                            key = { _, group -> group.label }
+                        ) { index, group ->
+                            TimelineDay(
+                                group = group,
+                                isLast = index == uiState.groups.lastIndex,
+                                onJournalClick = onJournalClick
+                            )
+                        }
+                    }
                 }
             }
         }
-
-        WriteButton(
-            hasToday = hasToday,
-            onClick = onCreateClick,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 16.dp + barHeight)
-        )
     }
 }
 
 @Composable
 private fun ListHeader(
     uiState: JournalListUiState,
-    daysWritten: Int,
-    daysInMonth: Int,
+    viewMode: JournalViewMode,
+    onViewModeChange: (JournalViewMode) -> Unit,
     monthOptions: List<Pair<Int, String>>,
     yearOptions: List<Pair<Int, String>>,
     onMonthSelected: (Int) -> Unit,
     onYearSelected: (Int) -> Unit,
     onOpenTree: () -> Unit
-
 ) {
     Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp)) {
-        Text(
-            text = "Nhật ký",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = when {
-                uiState.isLoading -> "Đang tải nhật ký…"
-                daysWritten == 0 -> "Chưa có ngày nào được ghi"
-                else -> "Đã ghi $daysWritten/$daysInMonth ngày"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            PeriodChip("Tháng ${uiState.month}", monthOptions, onMonthSelected)
-            PeriodChip(uiState.year.toString(), yearOptions, onYearSelected)
-            EmotionSetButton()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Nhật ký",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
             EmotionTreeButton(onClick = onOpenTree)
+            Spacer(Modifier.width(8.dp))
+            EmotionSetButton()
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PeriodChip("Tháng ${uiState.month}", monthOptions, onMonthSelected)
+                PeriodChip(uiState.year.toString(), yearOptions, onYearSelected)
+            }
+            ViewModeToggle(mode = viewMode, onChange = onViewModeChange)
+        }
+    }
+}
+
+/** Thẻ nhắc viết nhật ký hôm nay ở chế độ Dòng thời gian (khi hôm nay chưa có nhật ký). */
+@Composable
+private fun TodayPrompt(onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+
+    Row(
+        modifier = Modifier
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .fillMaxWidth()
+            .bouncyClickable(onClick)
+            .clip(RoundedCornerShape(24.dp))
+            .background(colors.primary.copy(alpha = 0.10f))
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        EmotionIcon(emotion = Emotion.NEUTRAL, size = 48.dp)
+        Column {
+            Text(
+                text = "Hôm nay bạn thấy thế nào?",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Chạm để viết nhật ký hôm nay",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant
+            )
         }
     }
 }
@@ -456,39 +491,10 @@ private fun EmptyState() {
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "Viết vài dòng về hôm nay để bắt đầu.",
+            text = "Chuyển sang dạng lịch và chạm vào một ngày để viết nhật ký.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
-        )
-    }
-}
-
-@Composable
-private fun WriteButton(
-    hasToday: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val primary = MaterialTheme.colorScheme.primary
-    val tertiary = MaterialTheme.colorScheme.tertiary
-    val shape = RoundedCornerShape(28.dp)
-    val content = MaterialTheme.colorScheme.onPrimary
-
-    Row(
-        modifier = modifier
-            .bouncyClickable(onClick)
-            .shadow(14.dp, shape, ambientColor = primary, spotColor = primary)
-            .clip(shape)
-            .background(Brush.horizontalGradient(listOf(primary, lerp(primary, tertiary, 0.55f))))
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(
-            imageVector = if (hasToday) Icons.Default.Edit else Icons.Default.Add,
-            contentDescription = null,
-            tint = content
         )
     }
 }

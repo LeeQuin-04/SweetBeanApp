@@ -39,28 +39,23 @@ fun JournalRoute() {
         key = "journal_tree_$uid",
         factory = remember(uid) { JournalDependencies.emotionTreeViewModelFactory(uid) }
     )
-    val treeState by treeViewModel.uiState.collectAsStateWithLifecycle()
-    var showTree by rememberSaveable { mutableStateOf(false) }
-
-    LaunchedEffect(treeState.errorMessage) {
-        treeState.errorMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-            treeViewModel.consumeError()
-        }
-    }
 
     val listState by listViewModel.uiState.collectAsStateWithLifecycle()
     val editorState by editorViewModel.uiState.collectAsStateWithLifecycle()
+    val treeState by treeViewModel.uiState.collectAsStateWithLifecycle()
+
+    val (viewMode, setViewMode) = rememberJournalViewMode()
 
     var showEditor by rememberSaveable { mutableStateOf(false) }
+    var showTree by rememberSaveable { mutableStateOf(false) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    // Lưu thành công thì đóng màn hình soạn; danh sách tự cập nhật nhờ snapshot listener.
+    // Lưu thành công thì đóng màn hình soạn; danh sách và lịch tự cập nhật nhờ snapshot listener.
     LaunchedEffect(editorState.isSaved) {
         if (editorState.isSaved) showEditor = false
     }
 
-    // Không kiểm tra được nhật ký hôm nay thì đóng form (tránh tạo trùng khi đang mất mạng).
+    // Không kiểm tra được nhật ký của ngày đã chọn thì đóng form (tránh tạo trùng khi mất mạng).
     LaunchedEffect(editorState.loadFailed) {
         if (editorState.loadFailed) showEditor = false
     }
@@ -79,63 +74,85 @@ fun JournalRoute() {
         }
     }
 
-    if (showTree) {
-        BackHandler { showTree = false }
-        LaunchedEffect(Unit) { treeViewModel.refresh() }   // mở màn hình nào cũng tải lại
+    LaunchedEffect(treeState.errorMessage) {
+        treeState.errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            treeViewModel.consumeError()
+        }
+    }
 
-        EmotionTreeScreen(
-            uiState = treeState,
-            onBack = { showTree = false },
-            onYearChange = treeViewModel::selectYear,
-            onMonthSelect = treeViewModel::selectMonth
-        )
-    } else if (showEditor) {
-        BackHandler { showEditor = false }
+    when {
+        showTree -> {
+            BackHandler { showTree = false }
+            LaunchedEffect(Unit) { treeViewModel.refresh() }   // mở màn hình nào cũng tải lại
 
-        JournalEditorScreen(
-            uiState = editorState,
-            onBack = { showEditor = false },
-            onEmotionSelected = editorViewModel::onEmotionSelected,
-            onTitleChange = editorViewModel::onTitleChange,
-            onTextChange = editorViewModel::onTextChange,
-            onAddMedia = editorViewModel::addMedia,
-            onRemoveMedia = editorViewModel::removeMedia,
-            onSave = editorViewModel::save
-        )
-    } else {
-        JournalListScreen(
-            uiState = listState,
-            onMonthSelected = listViewModel::selectMonth,
-            onYearSelected = listViewModel::selectYear,
-            onJournalClick = { selectedId = it.id },
-            onCreateClick = {
-                // Hôm nay đã có nhật ký thì mở nó để chỉnh sửa (mỗi ngày một nhật ký).
-                editorViewModel.startToday()
-                showEditor = true
-            },
-            onOpenTree = { showTree = true }
-        )
-
-        val selected = remember(listState.groups, selectedId) {
-            listState.groups.asSequence()
-                .flatMap { it.items.asSequence() }
-                .firstOrNull { it.id == selectedId }
+            EmotionTreeScreen(
+                uiState = treeState,
+                onBack = { showTree = false },
+                onYearChange = treeViewModel::selectYear,
+                onMonthSelect = treeViewModel::selectMonth
+            )
         }
 
-        if (selected != null) {
-            JournalDetailDialog(
-                journal = selected,
-                onDismiss = { selectedId = null },
-                onEdit = {
-                    editorViewModel.start(selected)
-                    selectedId = null
-                    showEditor = true
-                },
-                onDelete = {
-                    listViewModel.delete(selected.id)
-                    selectedId = null
-                }
+        showEditor -> {
+            BackHandler { showEditor = false }
+
+            JournalEditorScreen(
+                uiState = editorState,
+                onBack = { showEditor = false },
+                onEmotionSelected = editorViewModel::onEmotionSelected,
+                onTitleChange = editorViewModel::onTitleChange,
+                onTextChange = editorViewModel::onTextChange,
+                onAddMedia = editorViewModel::addMedia,
+                onRemoveMedia = editorViewModel::removeMedia,
+                onSave = editorViewModel::save
             )
+        }
+
+        else -> {
+            JournalListScreen(
+                uiState = listState,
+                viewMode = viewMode,
+                onViewModeChange = setViewMode,
+                onMonthSelected = listViewModel::selectMonth,
+                onYearSelected = listViewModel::selectYear,
+                onJournalClick = { selectedId = it.id },
+                onDayClick = { day ->
+                    val existing = listViewModel.run {
+                        listState.journalOn(day)
+                    }
+                    if (existing != null) {
+                        selectedId = existing.id
+                    } else {
+                        // Chưa có nhật ký: mở form tạo cho đúng ngày này (nếu thực ra đã có, form tự nạp để sửa).
+                        editorViewModel.startFor(day)
+                        showEditor = true
+                    }
+                },
+                onOpenTree = { showTree = true }
+            )
+
+            val selected = remember(listState.groups, selectedId) {
+                listState.groups.asSequence()
+                    .flatMap { it.items.asSequence() }
+                    .firstOrNull { it.id == selectedId }
+            }
+
+            if (selected != null) {
+                JournalDetailDialog(
+                    journal = selected,
+                    onDismiss = { selectedId = null },
+                    onEdit = {
+                        editorViewModel.start(selected)
+                        selectedId = null
+                        showEditor = true
+                    },
+                    onDelete = {
+                        listViewModel.delete(selected.id)
+                        selectedId = null
+                    }
+                )
+            }
         }
     }
 }

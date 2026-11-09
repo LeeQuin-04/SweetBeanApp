@@ -10,10 +10,8 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import java.util.Locale
 
 class JournalRepository(
     private val firestore: FirebaseFirestore
@@ -72,11 +70,11 @@ class JournalRepository(
         return snapshot.documents.mapNotNull { it.toJournal() }
     }
 
-    /** Nhật ký của hôm nay (nếu đã có). Mỗi ngày chỉ một nhật ký nhờ ID cố định theo ngày. */
-    suspend fun findToday(uid: String): Journal? {
+    /** Nhật ký của một ngày (nếu đã có). Mỗi ngày chỉ một nhật ký nhờ ID cố định theo ngày. */
+    suspend fun findDay(uid: String, day: DayKey): Journal? {
         val snapshot = firestore
             .collection(JOURNALS_COLLECTION)
-            .document(todayId(uid))
+            .document(day.id(uid))
             .get()
             .await()
 
@@ -87,15 +85,23 @@ class JournalRepository(
      * Tạo nhật ký của hôm nay với ID {uid}_{yyyyMMdd}. Nếu hôm nay đã có thì set() trở thành
      * một lần update và Security Rules từ chối (date/createdAt bị đổi), nên không ghi đè được.
      */
-    suspend fun create(uid: String, draft: JournalDraft) {
+    suspend fun create(uid: String, day: DayKey, draft: JournalDraft) {
         require(uid.isNotBlank()) { "UID không được để trống." }
+        require(!day.isFuture()) { "Không thể tạo nhật ký cho ngày trong tương lai." }
+
+        // Hôm nay lấy giờ máy chủ; ngày đã qua dùng ngày đã chọn, giờ phút là lúc đang viết.
+        val date: Any = if (day.isToday()) {
+            FieldValue.serverTimestamp()
+        } else {
+            Timestamp(Date(day.atCurrentTimeOfDay()))
+        }
 
         firestore.collection(JOURNALS_COLLECTION)
-            .document(todayId(uid))
+            .document(day.id((uid)))
             .set(
                 mapOf(
                     "userId" to uid,
-                    "date" to FieldValue.serverTimestamp(),
+                    "date" to date,
                     "title" to draft.title,
                     "text" to draft.text,
                     "emotion" to draft.emotion.name,
@@ -136,8 +142,6 @@ class JournalRepository(
             .await()
     }
 
-    private fun todayId(uid: String): String =
-        "${uid}_${SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())}"
 }
 
 private fun DocumentSnapshot.toJournal(): Journal? = try {

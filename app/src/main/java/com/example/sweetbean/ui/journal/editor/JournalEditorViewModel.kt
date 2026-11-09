@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.example.sweetbean.data.journal.DayKey
 
 /** Một ảnh/video trong form: đã có trên Cloudinary (Remote) hoặc mới chọn từ máy (Local). */
 sealed interface EditorMedia {
@@ -44,6 +45,7 @@ data class JournalEditorUiState(
     val loadFailed: Boolean = false,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
+    val day: DayKey? = null, // ngày đang viết
     val errorMessage: String? = null
 )
 
@@ -63,27 +65,28 @@ class JournalEditorViewModel(
     }
 
     /**
-     * Mở form cho nhật ký hôm nay: nếu hôm nay đã có nhật ký thì nạp nó để chỉnh sửa
-     * (mỗi ngày chỉ một nhật ký), nếu chưa có thì mở form trống.
+     * Mở form cho ngày [day]: nếu ngày đó đã có nhật ký thì nạp nó để chỉnh sửa
+     * (mỗi ngày một nhật ký), nếu chưa có thì mở form trống.
      */
-    fun startToday() {
+    fun startFor(day: DayKey) {
         if (_uiState.value.isSaving) return
-        _uiState.value = JournalEditorUiState(isLoading = true)
+        _uiState.value = JournalEditorUiState(isLoading = true, day = day)
 
         viewModelScope.launch {
             try {
-                val existing = repository.findToday(uid)
+                val existing = repository.findDay(uid, day)
                 _uiState.value = existing?.toEditorState()?.copy(
-                    errorMessage = "Hôm nay bạn đã có nhật ký, đang mở để chỉnh sửa."
+                    errorMessage = "Ngày ${day.label()} đã có nhật ký, đang mở để chỉnh sửa."
                 )
-                    ?: JournalEditorUiState()
+                    ?: JournalEditorUiState(day = day)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e("JournalEditor", "findToday failed", e)
+                Log.e("JournalEditor", "findDay failed", e)
                 _uiState.value = JournalEditorUiState(
+                    day = day,
                     loadFailed = true,
-                    errorMessage = "Không kiểm tra được nhật ký hôm nay. Kiểm tra kết nối rồi thử lại."
+                    errorMessage = "Không kiểm tra được nhật ký của ngày này. Kiểm tra kết nối rồi thử lại."
                 )
             }
         }
@@ -159,7 +162,7 @@ class JournalEditorViewModel(
 
                 val editingId = state.editingId
                 if (editingId == null) {
-                    repository.create(uid, draft)
+                    repository.create(uid, state.day ?: DayKey.today(), draft)
                 } else {
                     repository.update(editingId, draft)
                 }
@@ -181,6 +184,7 @@ class JournalEditorViewModel(
 
     private fun Journal.toEditorState() = JournalEditorUiState(
         editingId = id,
+        day = DayKey.of(dateMillis),
         emotion = emotion,
         title = title,
         text = text,

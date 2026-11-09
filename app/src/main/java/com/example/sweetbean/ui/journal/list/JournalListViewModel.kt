@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.example.sweetbean.data.journal.DayKey
 
 data class JournalDayGroup(
     val label: String,
@@ -105,4 +106,10 @@ class JournalListViewModel(
     private fun List<Journal>.groupByDay(): List<JournalDayGroup> =
         groupBy { JournalFormat.day(it.dateMillis) }
             .map { (label, items) -> JournalDayGroup(label, items) }
+
+    /** Nhật ký của một ngày trong tháng đang xem (null nếu chưa có). */
+    fun JournalListUiState.journalOn(day: DayKey): Journal? =
+        groups.asSequence()
+            .flatMap { it.items.asSequence() }
+            .firstOrNull { DayKey.of(it.dateMillis) == day }
 }
