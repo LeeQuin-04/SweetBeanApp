@@ -71,8 +71,6 @@ fun PostDetailScreen(
     onPostLike: () -> Unit,
     onFollow: () -> Unit,
     onDeletePost: () -> Unit,
-    onEditPost: ()-> Unit,
-    onHidePost: () -> Unit,
     onCommentLike: (String) -> Unit,
     onReply: (CommentItem, CommentItem) -> Unit,
     onToggleThread: (String) -> Unit,
@@ -112,8 +110,6 @@ fun PostDetailScreen(
                 PostMenu(
                     isOwn = post.authorId == currentUid,
                     onDelete = onDeletePost,
-                    onHide = onHidePost,
-                    onEdit = onEditPost,
                     onReport = { report(ReportTarget.POST, post.id) }
                 )
             }
@@ -237,7 +233,6 @@ private fun PostBody(
                         text = buildString {
                             if (username.isNotBlank()) append("@$username · ")
                             append(CommunityFormat.timeAgo(post.createdAtMillis))
-                            if (post.editedAtMillis != null) append(" · đã chỉnh sửa")
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.onSurfaceVariant

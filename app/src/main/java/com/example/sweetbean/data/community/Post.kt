@@ -37,7 +37,6 @@ data class Post(
     val commentCount: Long,
     val repostCount: Long,
     val createdAtMillis: Long,
-    val editedAtMillis: Long? = null,
     val moderationLabel: String? = null
 )
 

@@ -37,7 +37,6 @@ class CommunityRepository(
         private const val FOLLOWING_FEED_SIZE = 40
         private const val IN_CHUNK = 10
         private const val COMMENTS = "comments"
-        private const val HIDDEN_POSTS = "hiddenPosts"
     }
 
     private val authorCache = ConcurrentHashMap<String, PostAuthor>()
@@ -97,19 +96,6 @@ class CommunityRepository(
             .sortedByDescending { it.createdAtMillis }
             .take(FOLLOWING_FEED_SIZE)
     }
-
-    /** Bài gần đây của chính mình ở mọi nhãn/phạm vi: người đăng luôn thấy bài của mình. */
-    suspend fun loadOwnPosts(uid: String): List<Post> =
-        firestore.collection(POSTS)
-            .whereEqualTo("authorId", uid)
-            .whereEqualTo("deletedAt", null)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .limit(15)
-            .get()
-            .await()
-            .documents
-            .mapNotNull { it.toPost() }
-            .filter { !it.isHidden }
 
     suspend fun getPost(postId: String): Post? {
         val doc = firestore.collection(POSTS).document(postId).get().await()
@@ -299,28 +285,6 @@ class CommunityRepository(
         }.await()
     }
 
-    suspend fun hidePost(uid: String, postId: String) {
-        AuthDependencies.firestore.collection(HIDDEN_POSTS)
-            .document("${uid}_$postId")
-            .set(
-                mapOf(
-                    "userId" to uid,
-                    "postId" to postId,
-                    "createdAt" to FieldValue.serverTimestamp()
-                )
-            )
-            .await()
-    }
-
-    suspend fun loadHiddenPostIds(uid: String): Set<String> {
-        return AuthDependencies.firestore.collection(HIDDEN_POSTS)
-            .whereEqualTo("userId", uid)
-            .get()
-            .await()
-            .documents
-            .mapNotNull { it.getString("postId") }
-            .toSet()
-    }
     suspend fun searchUsers(query: String, limit: Int = 20): List<PostAuthor> {
         val q = query.trim().removePrefix("@").lowercase()
         if (q.length < 2) return emptyList()
@@ -419,8 +383,6 @@ private fun DocumentSnapshot.toPost(): Post? {
             commentCount = getLong("commentCount") ?: 0L,
             repostCount = getLong("repostCount") ?: 0L,
             createdAtMillis = createdAt.toDate().time,
-            editedAtMillis = getTimestamp("editedAt", DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
-                ?.toDate()?.time,
             moderationLabel = getString("moderationLabel")
         )
     } catch (e: RuntimeException) {

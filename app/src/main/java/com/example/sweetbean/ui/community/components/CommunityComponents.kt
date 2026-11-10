@@ -96,13 +96,10 @@ fun UserAvatar(
 /** Màn nào cũng có thể gọi (loại đối tượng, id) để mở hộp thoại báo cáo; Route cung cấp hàm thật. */
 val LocalReportHandler = staticCompositionLocalOf<(String, String) -> Unit> { { _, _ -> } }
 
-/** Nút ⋮: bài của mình có "Xóa bài viết" (hỏi xác nhận), bài người khác có "Ẩn bài viết". */
 @Composable
 fun PostMenu(
     isOwn: Boolean,
-    onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onHide: () -> Unit,
     onReport: () -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
@@ -120,13 +117,6 @@ fun PostMenu(
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (isOwn) {
                 DropdownMenuItem(
-                    text = { Text("Chỉnh sửa bài viết") },
-                    onClick = {
-                        open = false
-                        onEdit()
-                    }
-                )
-                DropdownMenuItem(
                     text = { Text("Xóa bài viết", color = colors.error) },
                     onClick = {
                         open = false
@@ -134,13 +124,6 @@ fun PostMenu(
                     }
                 )
             } else {
-                DropdownMenuItem(
-                    text = { Text("Ẩn bài viết") },
-                    onClick = {
-                        open = false
-                        onHide()
-                    }
-                )
                 DropdownMenuItem(
                     text = { Text("Báo cáo bài viết", color = colors.error) },
                     onClick = {

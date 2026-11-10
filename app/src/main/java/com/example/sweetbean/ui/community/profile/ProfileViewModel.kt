@@ -48,7 +48,6 @@ class ProfileViewModel(
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     private var cursor: DocumentSnapshot? = null
-    private var hiddenIds: Set<String> = emptySet()
     private var followBusy = false
     private val likeBusy = mutableSetOf<String>()
 
@@ -159,21 +158,6 @@ class ProfileViewModel(
         }
     }
 
-    fun hidePost(postId: String) {
-        viewModelScope.launch {
-            try {
-                repository.hidePost(uid, postId)
-                hiddenIds = hiddenIds + postId
-                removeItem(postId)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "hidePost failed", e)
-                _uiState.update { it.copy(errorMessage = "Không ẩn được bài viết. Vui lòng thử lại.") }
-            }
-        }
-    }
-
     fun consumeError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
@@ -189,8 +173,6 @@ class ProfileViewModel(
         }
 
         try {
-            if (reset && uid != profileId) hiddenIds = repository.loadHiddenPostIds(uid)
-
             val page = repository.loadUserPostsPage(
                 viewerId = uid,
                 ownerId = profileId,
@@ -198,7 +180,7 @@ class ProfileViewModel(
                 cursor = cursor
             )
             cursor = page.cursor ?: cursor
-            val items = buildItems(page.posts.filter { it.id !in hiddenIds })
+            val items = buildItems(page.posts)
 
             _uiState.update { state ->
                 val merged = if (reset) {

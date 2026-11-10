@@ -10,7 +10,6 @@ import com.example.sweetbean.data.media.CloudinaryMediaUploader
 import com.example.sweetbean.ui.community.create.CreatePostViewModel
 import com.example.sweetbean.ui.community.feed.CommunityFeedViewModel
 import com.example.sweetbean.ui.community.detail.PostDetailViewModel
-import com.example.sweetbean.ui.community.edit.EditPostViewModel
 import com.example.sweetbean.ui.community.search.SearchViewModel
 import com.example.sweetbean.ui.community.profile.ProfileViewModel
 import com.example.sweetbean.ui.community.report.ReportViewModel
@@ -42,10 +41,6 @@ object CommunityDependencies {
     fun postDetailViewModelFactory(uid: String, postId: String): ViewModelProvider.Factory =
         viewModelFactory {
             initializer { PostDetailViewModel(uid, postId, repository, api) }
-        }
-    fun editPostViewModelFactory(uid: String, postId: String): ViewModelProvider.Factory =
-        viewModelFactory {
-            initializer { EditPostViewModel(uid, postId, repository, api) }
         }
     fun searchViewModelFactory(uid: String): ViewModelProvider.Factory = viewModelFactory {
         initializer { SearchViewModel(uid, repository) }

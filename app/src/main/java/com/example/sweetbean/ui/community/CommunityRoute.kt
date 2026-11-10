@@ -3,6 +3,7 @@ package com.example.sweetbean.ui.community
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,25 +14,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sweetbean.data.community.DistributionLevel
+import com.example.sweetbean.data.community.PostVisibility
 import com.example.sweetbean.data.community.ReviewStatus
 import com.example.sweetbean.di.AuthDependencies
 import com.example.sweetbean.di.CommunityDependencies
+import com.example.sweetbean.ui.community.components.LocalReportHandler
+import com.example.sweetbean.ui.community.components.ReportDialog
 import com.example.sweetbean.ui.community.create.CreatePostScreen
 import com.example.sweetbean.ui.community.create.CreatePostViewModel
 import com.example.sweetbean.ui.community.detail.PostDetailScreen
 import com.example.sweetbean.ui.community.detail.PostDetailViewModel
-import com.example.sweetbean.ui.community.edit.EditPostScreen
-import com.example.sweetbean.ui.community.edit.EditPostViewModel
 import com.example.sweetbean.ui.community.feed.CommunityFeedScreen
 import com.example.sweetbean.ui.community.feed.CommunityFeedViewModel
 import com.example.sweetbean.ui.community.profile.ProfileScreen
 import com.example.sweetbean.ui.community.profile.ProfileViewModel
+import com.example.sweetbean.ui.community.report.ReportViewModel
 import com.example.sweetbean.ui.community.search.SearchScreen
 import com.example.sweetbean.ui.community.search.SearchViewModel
-import androidx.compose.runtime.CompositionLocalProvider
-import com.example.sweetbean.ui.community.components.LocalReportHandler
-import com.example.sweetbean.ui.community.components.ReportDialog
-import com.example.sweetbean.ui.community.report.ReportViewModel
 
 @Composable
 fun CommunityRoute() {
@@ -54,12 +53,11 @@ fun CommunityRoute() {
     val feedState by feedViewModel.uiState.collectAsStateWithLifecycle()
     val createState by createViewModel.uiState.collectAsStateWithLifecycle()
     val reportState by reportViewModel.uiState.collectAsStateWithLifecycle()
-    var reportType by rememberSaveable { mutableStateOf<String?>(null) }
-    var reportTargetId by rememberSaveable { mutableStateOf<String?>(null) }
 
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var showSearch by rememberSaveable { mutableStateOf(false) }
-    var editPostId by rememberSaveable { mutableStateOf<String?>(null) }
+    var reportType by rememberSaveable { mutableStateOf<String?>(null) }
+    var reportTargetId by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Ngăn xếp điều hướng cho chi tiết bài và trang cá nhân: "post:{id}" hoặc "profile:{id}".
     var navStack by rememberSaveable { mutableStateOf(ArrayList<String>()) }
@@ -69,24 +67,25 @@ fun CommunityRoute() {
     }
     val top = navStack.lastOrNull()
     val postId = if (top != null && top.startsWith("post:")) top.removePrefix("post:") else null
-    val profileId =
-        if (top != null && top.startsWith("profile:")) top.removePrefix("profile:") else null
-    val editId = editPostId
+    val profileId = if (top != null && top.startsWith("profile:")) top.removePrefix("profile:") else null
 
-    // Đăng xong: đóng form, báo kết quả, tải lại bảng tin.
+    // Đăng xong: báo kết quả, tải lại bảng tin; bài không hiện ở Khám phá thì mở trang cá nhân của mình.
     LaunchedEffect(createState.postedLevel) {
         val level = createState.postedLevel ?: return@LaunchedEffect
-        showCreate = false
+        val showsInFeed = level == DistributionLevel.NORMAL &&
+                createState.visibility == PostVisibility.PUBLIC
         val message = when {
-            level == DistributionLevel.NORMAL -> "Đã đăng bài viết."
+            showsInFeed -> "Đã đăng bài viết."
+            level == DistributionLevel.NORMAL -> "Đã đăng bài. Bài chỉ hiện với người theo dõi bạn."
             createState.moderationReviewStatus == ReviewStatus.PENDING_AI_UNAVAILABLE ->
                 "Đã đăng bài, đang chờ kiểm duyệt."
-
             else -> "Đã đăng bài, nhưng bài viết đang bị giới hạn hiển thị."
         }
+        showCreate = false
         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
         createViewModel.reset()
         feedViewModel.refresh()
+        if (!showsInFeed) push("profile:$uid")
     }
 
     LaunchedEffect(feedState.errorMessage) {
@@ -144,51 +143,6 @@ fun CommunityRoute() {
                 )
             }
 
-            editId != null -> {
-                val editViewModel: EditPostViewModel = viewModel(
-                    key = "post_edit_${uid}_$editId",
-                    factory = remember(uid, editId) {
-                        CommunityDependencies.editPostViewModelFactory(uid, editId)
-                    }
-                )
-                val editState by editViewModel.uiState.collectAsStateWithLifecycle()
-
-                LaunchedEffect(editId) { editViewModel.load() }
-
-                LaunchedEffect(editState.errorMessage) {
-                    editState.errorMessage?.let {
-                        Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-                        editViewModel.consumeError()
-                    }
-                }
-
-                // Lưu xong: báo kết quả, về màn trước (chi tiết, trang cá nhân hoặc bảng tin).
-                LaunchedEffect(editState.savedLevel) {
-                    val level = editState.savedLevel ?: return@LaunchedEffect
-                    val message = when {
-                        level == DistributionLevel.NORMAL -> "Đã lưu thay đổi."
-                        editState.moderationReviewStatus == ReviewStatus.PENDING_AI_UNAVAILABLE ->
-                            "Đã lưu, đang chờ kiểm duyệt."
-
-                        else -> "Đã lưu, nhưng bài viết đang bị giới hạn hiển thị."
-                    }
-                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                    editPostId = null
-                    feedViewModel.refresh()
-                    editViewModel.reset()
-                }
-
-                BackHandler(enabled = !editState.isSaving) { editPostId = null }
-
-                EditPostScreen(
-                    uiState = editState,
-                    onBack = { editPostId = null },
-                    onTextChange = editViewModel::onTextChange,
-                    onVisibilityChange = editViewModel::onVisibilityChange,
-                    onSave = editViewModel::save
-                )
-            }
-
             postId != null -> {
                 val detailViewModel: PostDetailViewModel = viewModel(
                     key = "post_detail_${uid}_$postId",
@@ -215,7 +169,7 @@ fun CommunityRoute() {
                 }
                 BackHandler { closeDetail() }
 
-                // Xóa hoặc ẩn bài xong thì tự đóng màn chi tiết.
+                // Xóa bài xong thì tự đóng màn chi tiết.
                 LaunchedEffect(detailState.finished) {
                     if (detailState.finished) closeDetail()
                 }
@@ -226,9 +180,7 @@ fun CommunityRoute() {
                     onBack = closeDetail,
                     onPostLike = detailViewModel::togglePostLike,
                     onFollow = detailViewModel::toggleFollow,
-                    onEditPost = { editPostId = postId },
                     onDeletePost = detailViewModel::deletePost,
-                    onHidePost = detailViewModel::hidePost,
                     onCommentLike = detailViewModel::toggleCommentLike,
                     onReply = detailViewModel::startReply,
                     onToggleThread = detailViewModel::toggleThread,
@@ -273,9 +225,7 @@ fun CommunityRoute() {
                     onLikeClick = profileViewModel::toggleLike,
                     onLoadMore = profileViewModel::loadMore,
                     onPostClick = { push("post:$it") },
-                    onEditClick = { editPostId = it },
-                    onDeleteClick = profileViewModel::deletePost,
-                    onHideClick = profileViewModel::hidePost
+                    onDeleteClick = profileViewModel::deletePost
                 )
             }
 
@@ -320,26 +270,26 @@ fun CommunityRoute() {
                 onRefresh = feedViewModel::refresh,
                 onPostClick = { push("post:$it") },
                 onDeleteClick = feedViewModel::deletePost,
-                onHideClick = feedViewModel::hidePost,
-                onEditClick = { editPostId = it },
                 onSearchClick = { showSearch = true },
-                onAuthorClick = { push("profile:$it") }
+                onAuthorClick = { push("profile:$it") },
+                onMyProfileClick = { push("profile:$uid") }
             )
         }
-        val rType = reportType
-        val rId = reportTargetId
-        if (rType != null && rId != null) {
-            ReportDialog(
-                targetType = rType,
-                isSubmitting = reportState.isSubmitting,
-                onDismiss = {
-                    reportType = null
-                    reportTargetId = null
-                },
-                onSubmit = { reason, description, evidence ->
-                    reportViewModel.submit(rType, rId, reason, description, evidence)
-                }
-            )
-        }
+    }
+
+    val rType = reportType
+    val rId = reportTargetId
+    if (rType != null && rId != null) {
+        ReportDialog(
+            targetType = rType,
+            isSubmitting = reportState.isSubmitting,
+            onDismiss = {
+                reportType = null
+                reportTargetId = null
+            },
+            onSubmit = { reason, description, evidence ->
+                reportViewModel.submit(rType, rId, reason, description, evidence)
+            }
+        )
     }
 }

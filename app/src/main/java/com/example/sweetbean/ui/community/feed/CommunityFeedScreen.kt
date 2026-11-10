@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,10 +58,10 @@ import androidx.compose.ui.unit.dp
 import com.example.sweetbean.data.community.DistributionLevel
 import com.example.sweetbean.data.community.Post
 import com.example.sweetbean.data.community.PostVisibility
+import com.example.sweetbean.data.community.ReportTarget
 import com.example.sweetbean.ui.common.LocalFloatingBarHeight
 import com.example.sweetbean.ui.community.CommunityFormat
 import com.example.sweetbean.ui.community.components.LocalReportHandler
-import com.example.sweetbean.data.community.ReportTarget
 import com.example.sweetbean.ui.community.components.PostMediaGrid
 import com.example.sweetbean.ui.community.components.PostMenu
 import com.example.sweetbean.ui.community.components.UserAvatar
@@ -78,10 +79,9 @@ fun CommunityFeedScreen(
     onRefresh: () -> Unit,
     onPostClick: (String) -> Unit,
     onDeleteClick: (String) -> Unit,
-    onHideClick: (String) -> Unit,
-    onEditClick: (String) -> Unit,
     onSearchClick: () -> Unit,
-    onAuthorClick: (String) -> Unit
+    onAuthorClick: (String) -> Unit,
+    onMyProfileClick: () -> Unit
 ) {
     val barHeight = LocalFloatingBarHeight.current
     val tabs = FeedTab.entries
@@ -103,7 +103,6 @@ fun CommunityFeedScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Thay chữ này bằng logo SweetBean nếu bạn đã có drawable.
                 Text(
                     text = "SweetBean",
                     style = MaterialTheme.typography.headlineMedium,
@@ -114,6 +113,13 @@ fun CommunityFeedScreen(
                         .weight(1f)
                         .padding(vertical = 12.dp)
                 )
+                IconButton(onClick = onMyProfileClick) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Bài viết của tôi",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
                 IconButton(onClick = onSearchClick) {
                     Icon(
                         imageVector = Icons.Default.Search,
@@ -146,8 +152,6 @@ fun CommunityFeedScreen(
                     onRefresh = onRefresh,
                     onPostClick = onPostClick,
                     onDeleteClick = onDeleteClick,
-                    onHideClick = onHideClick,
-                    onEditClick = onEditClick,
                     onAuthorClick = onAuthorClick
                 )
             }
@@ -181,8 +185,6 @@ private fun FeedPage(
     onRefresh: () -> Unit,
     onPostClick: (String) -> Unit,
     onDeleteClick: (String) -> Unit,
-    onHideClick: (String) -> Unit,
-    onEditClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -228,9 +230,7 @@ private fun FeedPage(
                         onClick = { onPostClick(item.post.id) },
                         onLike = { onLikeClick(item.post.id) },
                         onFollow = { onFollowClick(item.post.authorId) },
-                        onEdit = { onEditClick(item.post.id) },
                         onDelete = { onDeleteClick(item.post.id) },
-                        onHide = { onHideClick(item.post.id) },
                         onAuthorClick = { onAuthorClick(item.post.authorId) }
                     )
                 }
@@ -288,10 +288,10 @@ private fun EmptyFeed(tab: FeedTab, state: FeedTabState, followingIds: Set<Strin
     val message = when {
         state.failed -> "Không tải được bảng tin.\nKéo xuống để thử lại."
         tab == FeedTab.FOLLOWING && followingIds.isEmpty() ->
-            "Bạn chưa theo dõi ai.\nSang tab Tất cả để khám phá nhé."
+            "Bạn chưa theo dõi ai.\nSang tab Khám phá để tìm người thú vị nhé."
         tab == FeedTab.FOLLOWING ->
             "Những người bạn theo dõi chưa có bài viết mới.\nKéo xuống để tải lại."
-        else -> "Chưa có bài viết nào.\nHãy là người đầu tiên chia sẻ!"
+        else -> "Chưa có bài viết công khai nào.\nHãy là người đầu tiên chia sẻ!"
     }
     // Phải cuộn được thì mới kéo làm mới được khi danh sách trống.
     Box(
@@ -316,17 +316,15 @@ internal fun PostCard(
     onClick: () -> Unit,
     onLike: () -> Unit,
     onFollow: () -> Unit,
-    onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onHide: () -> Unit,
     showFollow: Boolean = true,
     onAuthorClick: () -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
+    val report = LocalReportHandler.current
     val name = item.author?.displayName?.ifBlank { null } ?: "Người dùng SweetBean"
     val username = item.author?.username.orEmpty()
     val note = if (isOwn) ownerNote(item.post) else null
-    val report = LocalReportHandler.current
 
     Surface(
         shape = RoundedCornerShape(22.dp),
@@ -359,7 +357,6 @@ internal fun PostCard(
                             text = buildString {
                                 if (username.isNotBlank()) append("@$username · ")
                                 append(CommunityFormat.timeAgo(item.post.createdAtMillis))
-                                if (item.post.editedAtMillis != null) append(" · đã chỉnh sửa")
                             },
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
@@ -371,7 +368,11 @@ internal fun PostCard(
                 if (!isOwn && showFollow) {
                     FollowChip(following = isFollowing, onClick = onFollow)
                 }
-                PostMenu(isOwn = isOwn, onEdit = onEdit, onDelete = onDelete, onHide = onHide, onReport = { report(ReportTarget.POST, item.post.id) })
+                PostMenu(
+                    isOwn = isOwn,
+                    onDelete = onDelete,
+                    onReport = { report(ReportTarget.POST, item.post.id) }
+                )
             }
 
             if (note != null) {
@@ -403,6 +404,7 @@ internal fun PostCard(
     }
 }
 
+/** Ghi chú trung tính cho người đăng khi bài của mình không hiển thị công khai. */
 private fun ownerNote(post: Post): String? = when {
     post.distributionLevel == DistributionLevel.AUTHOR_ONLY && post.moderationLabel == null ->
         "⏳ Đang chờ kiểm duyệt"
@@ -459,7 +461,7 @@ private fun PostActions(item: FeedItem, onLike: () -> Unit) {
                 color = colors.onSurfaceVariant
             )
         }
-
+        // Bình luận và Repost
         Text(
             text = "💬 ${item.post.commentCount}",
             style = MaterialTheme.typography.labelLarge,

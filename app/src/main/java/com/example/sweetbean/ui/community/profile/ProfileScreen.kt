@@ -15,7 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -59,9 +59,7 @@ fun ProfileScreen(
     onLikeClick: (String) -> Unit,
     onLoadMore: () -> Unit,
     onPostClick: (String) -> Unit,
-    onEditClick: (String) -> Unit,
-    onDeleteClick: (String) -> Unit,
-    onHideClick: (String) -> Unit
+    onDeleteClick: (String) -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     val barHeight = LocalFloatingBarHeight.current
@@ -88,7 +86,7 @@ fun ProfileScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
             }
             Text(
                 text = "Trang cá nhân",
@@ -201,9 +199,7 @@ fun ProfileScreen(
                             onClick = { onPostClick(item.post.id) },
                             onLike = { onLikeClick(item.post.id) },
                             onFollow = {},
-                            onEdit = { onEditClick(item.post.id) },
                             onDelete = { onDeleteClick(item.post.id) },
-                            onHide = { onHideClick(item.post.id) },
                             showFollow = false
                         )
                     }

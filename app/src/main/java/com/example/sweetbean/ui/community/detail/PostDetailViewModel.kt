@@ -363,19 +363,4 @@ class PostDetailViewModel(
             }
         }
     }
-
-    fun hidePost() {
-        val post = _uiState.value.post ?: return
-        viewModelScope.launch {
-            try {
-                repository.hidePost(uid, post.id)
-                _uiState.update { it.copy(finished = true) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "hidePost failed", e)
-                _uiState.update { it.copy(errorMessage = "Không ẩn được bài viết. Vui lòng thử lại.") }
-            }
-        }
-    }
 }

@@ -243,7 +243,7 @@ fun CreatePostScreen(
 }
 
 @Composable
-internal fun VisibilityPicker(
+private fun VisibilityPicker(
     visibility: String,
     enabled: Boolean,
     onChange: (String) -> Unit

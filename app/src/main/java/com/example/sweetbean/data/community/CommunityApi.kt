@@ -74,21 +74,6 @@ class CommunityApi(
             }
         )
     }
-    suspend fun editPost(postId: String, text: String, visibility: String): CreatePostResult {
-        val json = postJson(
-            "/posts/edit",
-            JSONObject().apply {
-                put("postId", postId)
-                put("text", text)
-                put("visibility", visibility)
-            }
-        )
-        return CreatePostResult(
-            postId = json.optString("postId", postId),
-            distributionLevel = json.optString("distributionLevel", DistributionLevel.NORMAL),
-            moderationReviewStatus = json.optString("moderationReviewStatus").ifBlank { null }
-        )
-    }
 
     private suspend fun postJson(path: String, payload: JSONObject): JSONObject =
         withContext(Dispatchers.IO) {

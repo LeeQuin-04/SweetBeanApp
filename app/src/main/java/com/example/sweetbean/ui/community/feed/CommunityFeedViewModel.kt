@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 
 enum class FeedTab(val label: String) {
     FOLLOWING("Đang theo dõi"),
-    ALL("Tất cả")
+    ALL("Khám phá")
 }
 
 data class FeedItem(
@@ -63,7 +63,6 @@ class CommunityFeedViewModel(
 
     private var followingReady = false
     private var allCursor: DocumentSnapshot? = null
-    private var hiddenIds: Set<String> = emptySet()
     private val loadJobs = mutableMapOf<FeedTab, Job>()
     private val likeBusy = mutableSetOf<String>()
 
@@ -82,7 +81,7 @@ class CommunityFeedViewModel(
                     if (first) load(FeedTab.FOLLOWING)
                 }
         }
-        // Tải sẵn tab Tất cả để vuốt sang là có nội dung.
+        // Tải sẵn tab Khám phá để vuốt sang là có nội dung.
         ensureLoaded(FeedTab.ALL)
     }
 
@@ -114,7 +113,7 @@ class CommunityFeedViewModel(
             try {
                 val page = repository.loadAllPage(allCursor)
                 allCursor = page.cursor ?: allCursor
-                val newItems = buildItems(page.posts.filter { it.id !in hiddenIds })
+                val newItems = buildItems(page.posts)
                 updateTab(FeedTab.ALL) { tabState ->
                     val known = tabState.items.map { it.post.id }.toSet()
                     tabState.copy(
@@ -184,26 +183,9 @@ class CommunityFeedViewModel(
         }
     }
 
-    fun hidePost(postId: String) {
-        viewModelScope.launch {
-            try {
-                repository.hidePost(uid, postId)
-                hiddenIds = hiddenIds + postId
-                removeItem(postId)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "hidePost failed", e)
-                _uiState.update { it.copy(errorMessage = "Không ẩn được bài viết. Vui lòng thử lại.") }
-            }
-        }
-    }
-
     fun consumeError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
-
-    // Nội bộ
 
     private fun ensureLoaded(tab: FeedTab) {
         val tabState = _uiState.value.tabState(tab)
@@ -229,18 +211,12 @@ class CommunityFeedViewModel(
                     val page = repository.loadAllPage(null)
                     allCursor = page.cursor
                     endReached = page.endReached
-                    // Người đăng luôn thấy bài gần đây của mình ở mọi nhãn.
-                    val own = repository.loadOwnPosts(uid)
-                    val oldest = page.posts.minOfOrNull { it.createdAtMillis }
-                    posts = (page.posts + own.filter { endReached || oldest == null || it.createdAtMillis >= oldest })
-                        .distinctBy { it.id }
-                        .sortedByDescending { it.createdAtMillis }
+                    posts = page.posts
                 } else {
                     posts = repository.loadFollowingFeed(_uiState.value.followingIds)
                 }
 
-                hiddenIds = repository.loadHiddenPostIds(uid)
-                val items = buildItems(posts.filter { it.id !in hiddenIds })
+                val items = buildItems(posts)
                 updateTab(tab) {
                     it.copy(
                         items = items,
